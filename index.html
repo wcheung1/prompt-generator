@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>一次過提示詞生成器</title>
+<style>
+:root{
+  --bg:#f6f3ee; --panel:#fffdf9; --panel2:#f1ece4; --ink:#26221d; --muted:#6f675c; --line:#e2d9cc;
+  --accent:#0f766e; --accent-ink:#ffffff; --accent-soft:#d6efe9; --warn:#b45309; --warn-soft:#fdf0dc;
+  --err:#b91c1c; --err-soft:#fde3e3; --think:#7c3aed; --think-soft:#efe7ff; --ok:#15803d; --ok-soft:#dcf3e2;
+  --shadow:0 1px 2px rgba(40,30,20,.06),0 4px 16px rgba(40,30,20,.06);
+  --font:"PingFang HK","PingFang TC","Noto Sans HK","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei","Heiti TC",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#16140f; --panel:#1f1c17; --panel2:#29251e; --ink:#eee8de; --muted:#a59c8e; --line:#3a342b;
+    --accent:#2dd4bf; --accent-ink:#06201d; --accent-soft:#123a35; --warn:#f59e0b; --warn-soft:#3a2a10;
+    --err:#f87171; --err-soft:#3b1717; --think:#a78bfa; --think-soft:#2a2140; --ok:#4ade80; --ok-soft:#14301d;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.55}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:1440px;margin:0 auto;padding:20px 16px 60px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{font-size:24px;margin:0;letter-spacing:.5px}
+.sub{color:var(--muted);margin:2px 0 0;font-size:14px}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:13px;color:var(--muted)}
+.steps b{color:var(--ink)}
+.layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:980px){.layout{grid-template-columns:1fr}}
+main>.card+.card{margin-top:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.card>.hd{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card>.bd{padding:14px 16px}
+.hd h2{font-size:16px;margin:0}
+.right{position:sticky;top:12px;display:flex;flex-direction:column;gap:18px;max-height:calc(100vh - 24px);overflow:auto;padding-bottom:4px;border-radius:14px}
+@media (max-width:980px){.right{position:static;max-height:none;overflow:visible}}
+label.f{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input[type=text],input[type=password],input[type=number],input[type=url],select,textarea{
+  width:100%;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 10px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+textarea{resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:560px){.row2{grid-template-columns:1fr}}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:9px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.big{padding:10px 18px;font-size:16px}
+.btn.sm{padding:3px 9px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.danger{color:var(--err)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:7px 12px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grow{flex:1}
+.search{max-width:240px}
+.hint{font-size:12px;color:var(--muted)}
+.pill{font-size:12px;border-radius:20px;padding:2px 9px;background:var(--panel2);color:var(--muted)}
+.chk{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:14px}
+.chk input{width:18px;height:18px;accent-color:var(--accent);flex:none}
+
+/* AI 註解 */
+.aiwhy{font-size:12.5px;line-height:1.5;margin:3px 8px 0;color:var(--muted)}
+.aiwhy .tag{display:inline-block;font-weight:700;border-radius:6px;padding:0 6px;margin-right:6px}
+.aiwhy .tag.yes{background:var(--ok-soft);color:var(--ok)}
+.aiwhy .tag.no{background:var(--panel2);color:var(--muted)}
+.aiwhy .tag.extra{background:var(--think-soft);color:var(--think)}
+.aiwhy .tag.miss{background:var(--warn-soft);color:var(--warn)}
+.aiwhy .diff{color:var(--warn);font-weight:600;margin-left:6px}
+.ainote{margin-top:12px;border-radius:10px;background:var(--think-soft);padding:10px 12px;font-size:14px}
+.ainote h3{margin:0 0 4px;font-size:14px;color:var(--think)}
+.ainote .nums{font-size:13px;color:var(--muted);margin-top:6px}
+.ainote ul{margin:6px 0 0;padding-left:20px;font-size:13px}
+.ainote details summary{cursor:pointer;font-size:13px;margin-top:6px;color:var(--think)}
+
+/* sections */
+.sec{margin-top:14px}
+.sec>.hd{cursor:pointer;user-select:none}
+.sec .count{font-size:12px;color:var(--muted);background:var(--panel2);border-radius:20px;padding:1px 9px}
+.sec .chev{transition:transform .15s;color:var(--muted)}
+.sec.collapsed .chev{transform:rotate(-90deg)}
+.sec.collapsed>.bd{display:none}
+.sec .desc{font-size:13px;color:var(--muted);margin:-4px 0 8px}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:8px 8px;border-radius:10px;border:1px solid transparent}
+.item+.item{margin-top:4px}
+.item.on{background:var(--accent-soft)}
+.item.differs{border-color:var(--warn)}
+.item:not(.on) textarea{opacity:.55}
+.item input[type=checkbox]{width:20px;height:20px;margin-top:7px;accent-color:var(--accent);cursor:pointer}
+.item textarea{border:1px solid transparent;background:transparent;padding:5px 8px;min-height:34px;overflow:hidden;resize:none;line-height:1.5}
+.item textarea:hover{border-color:var(--line);background:var(--panel)}
+.item textarea:focus{background:var(--panel)}
+.item .acts{display:flex;flex-direction:column;gap:4px;margin-top:4px;align-items:center}
+.item .edited{font-size:11px;color:var(--warn)}
+.item.hidden{display:none}
+.icon{border:0;background:transparent;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;border-radius:6px}
+.icon:hover{color:var(--accent);background:var(--panel2)}
+
+/* output */
+#out{min-height:300px;height:42vh;font-size:14px;line-height:1.6;background:var(--panel)}
+.banner{display:none;margin-bottom:8px;padding:8px 10px;border-radius:9px;background:var(--warn-soft);color:var(--warn);font-size:13px;align-items:center;gap:8px}
+.banner.show{display:flex}
+.copied{color:var(--ok);font-size:13px}
+
+/* AI */
+details.cfg{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--panel2)}
+details.cfg+details.cfg{margin-top:8px}
+details.cfg summary{cursor:pointer;font-weight:600}
+.keyrow{display:flex;gap:6px}
+.status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;background:var(--panel2);font-size:13px}
+.dot{width:11px;height:11px;border-radius:50%;background:var(--muted);flex:none}
+.st-connect .dot{background:var(--warn);animation:pulse 1s infinite}
+.st-think .dot{background:var(--think);animation:pulse .8s infinite}
+.st-write .dot{background:var(--accent);animation:pulse .6s infinite}
+.st-done .dot{background:var(--ok)}
+.st-err .dot{background:var(--err)}
+.st-len .dot{background:var(--warn)}
+@keyframes pulse{0%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}100%{opacity:1;transform:scale(1)}}
+.st-think .phase{color:var(--think)}
+.st-write .phase{color:var(--accent)}
+.st-err .phase{color:var(--err)}
+.st-len .phase{color:var(--warn)}
+.st-done .phase{color:var(--ok)}
+.phase{font-weight:700}
+.stats{color:var(--muted);font-variant-numeric:tabular-nums}
+.ticker{margin-top:8px;height:30px;border-radius:9px;background:var(--think-soft);color:var(--think);overflow:hidden;display:flex;justify-content:flex-end;align-items:center;padding:0 10px;font-size:13px;white-space:nowrap;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%);mask-image:linear-gradient(90deg,transparent,#000 12%)}
+.ticker span{flex:none}
+.ticker.idle{opacity:.5}
+.ticker .caret{display:inline-block;width:7px;height:14px;background:currentColor;margin-left:2px;vertical-align:-2px;animation:blink .8s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.streambox{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);max-height:220px;overflow:auto;padding:8px 10px;white-space:pre-wrap;word-break:break-word;font-size:13px}
+.streambox.think{color:var(--think);background:var(--think-soft);border-color:transparent;font-size:12.5px}
+.streambox.result{max-height:360px;font-size:13.5px}
+.errbox{display:none;margin-top:8px;padding:8px 10px;border-radius:9px;background:var(--err-soft);color:var(--err);font-size:13px;white-space:pre-wrap;word-break:break-word}
+.errbox.show{display:block}
+.logline{font-size:12px;color:var(--muted);margin-top:6px;white-space:pre-wrap}
+.lbl{font-size:12px;color:var(--muted);margin-top:10px;display:flex;justify-content:space-between;gap:8px}
+.kind{font-size:12px;color:var(--muted)}
+footer{margin-top:24px;color:var(--muted);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>一次過提示詞生成器</h1>
+      <p class="sub">將你嘅需求變成一份齊全嘅提示詞，一次過貼落 Grok（或者任何 AI）。所有內容都會自動記住喺呢部機。</p>
+      <div class="steps"><b>⓪</b> 寫原始需求 → AI 建議勾選 <b>①②</b> 你自己 review、改 <b>③</b> 撳「生成提示詞」→ 複製</div>
+    </div>
+    <div class="toolbar">
+      <button class="btn sm" id="btnExport" title="匯出勾選同修改（唔包 API Key）">匯出設定</button>
+      <button class="btn sm" id="btnImport">匯入設定</button>
+      <input type="file" id="fileImport" accept=".json,application/json" hidden>
+      <button class="btn sm danger" id="btnResetAll">全部還原預設</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT -->
+    <main>
+      <section class="card">
+        <div class="hd"><h2>⓪ 原始需求</h2><span class="hint">用你自己嘅說話寫，想到乜寫乜</span></div>
+        <div class="bd">
+          <textarea id="raw" rows="7" placeholder="例如：幫我整一個教 6–12 歲小朋友身體語言嘅 App，要有廣東話語音、3D 公仔、關卡同遊戲，iPad 用到，一個 HTML 檔……"></textarea>
+          <label class="chk"><input type="checkbox" id="optAllowText"> 容許 AI 微調條款字眼，令佢更貼合呢個項目（改過嘅條款可以撳 ↺ 還原）</label>
+          <label class="chk"><input type="checkbox" id="optReview"> 建議完之後，再叫 AI 以審核員身份逐項覆核一次（更穩陣，但時間多一倍）</label>
+          <div class="toolbar" style="margin-top:12px">
+            <button class="btn pri big" id="btnSuggest">🤖 AI 分析並建議勾選</button>
+            <button class="btn" id="btnStop2" disabled>停止</button>
+            <span class="hint">AI 設定喺 ④</span>
+          </div>
+          <div class="status" id="miniStatus" style="margin-top:10px">
+            <span class="dot"></span><span class="phase" id="miniPhase">未開始</span><span class="stats" id="miniStats"></span>
+          </div>
+          <div class="ticker idle" id="miniTicker"><span id="miniTickerText">AI 諗緊嘅嘢會喺呢度好似走馬燈咁流過</span></div>
+          <div id="aiNote"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="hd"><h2>① 項目資料</h2><span class="hint">條款入面嘅 {用戶}、{語言}、{平台}、{檔名} 會自動換成呢度填嘅字</span></div>
+        <div class="bd">
+          <div class="toolbar" style="margin-bottom:6px">
+            <span class="hint">提示詞類型：</span>
+            <div class="seg" id="modeSeg">
+              <button data-mode="new">新項目</button>
+              <button data-mode="edit">修改現有檔案</button>
+            </div>
+          </div>
+          <div class="aiwhy" id="why_mode" hidden></div>
+          <div class="row2">
+            <div><label class="f" for="f_name">項目名稱</label><input type="text" id="f_name" data-field="name" placeholder="例如：身體語言訓練 App"><div class="aiwhy" id="why_name" hidden></div></div>
+            <div><label class="f" for="f_file">輸出檔名</label><input type="text" id="f_file" data-field="file" placeholder="例如：body-language.html"><div class="aiwhy" id="why_file" hidden></div></div>
+          </div>
+          <label class="f" for="f_desc">項目描述（想做乜、教乜、有咩內容）</label>
+          <textarea id="f_desc" data-field="desc" rows="5" placeholder="AI 會由原始需求整理出嚟；你亦可以自己寫。"></textarea>
+          <div class="aiwhy" id="why_desc" hidden></div>
+          <div class="row2">
+            <div><label class="f" for="f_aud">目標用戶 → {用戶}</label><input type="text" id="f_aud" data-field="audience"><div class="aiwhy" id="why_audience" hidden></div></div>
+            <div><label class="f" for="f_lang">語言 → {語言}</label><input type="text" id="f_lang" data-field="lang"><div class="aiwhy" id="why_lang" hidden></div></div>
+          </div>
+          <label class="f" for="f_plat">平台 → {平台}</label>
+          <input type="text" id="f_plat" data-field="platform">
+          <div class="aiwhy" id="why_platform" hidden></div>
+          <label class="f" for="f_extra" id="extraLbl">額外要求（會放喺條款前面）</label>
+          <textarea id="f_extra" data-field="extra" rows="3" placeholder="條款冇 cover 到嘅具體要求，一行一點。"></textarea>
+          <div class="aiwhy" id="why_extra" hidden></div>
+        </div>
+      </section>
+
+      <div class="toolbar" style="margin:18px 0 0">
+        <h2 style="font-size:16px;margin:0">② 揀條款</h2>
+        <span class="pill" id="totalCount"></span>
+        <span class="pill" id="diffCount" hidden></span>
+        <span class="grow"></span>
+        <input type="text" class="search" id="search" placeholder="搵條款…">
+        <button class="btn sm" id="btnExpand">全部展開</button>
+        <button class="btn sm" id="btnCollapse">全部摺埋</button>
+      </div>
+      <div id="sections"></div>
+    </main>
+
+    <!-- RIGHT -->
+    <aside class="right">
+      <section class="card">
+        <div class="hd">
+          <h2>③ 提示詞</h2>
+          <span class="pill" id="outCount"></span>
+          <span class="grow"></span>
+          <span class="copied" id="copiedMsg" hidden>已複製 ✓</span>
+          <button class="btn" id="btnCopy">複製</button>
+        </div>
+        <div class="bd">
+          <button class="btn pri big" id="btnGen" style="width:100%;margin-bottom:10px">⚡ 生成提示詞</button>
+          <div class="banner" id="staleBanner">你改咗設定，下面仲係舊版本。撳「生成提示詞」更新。</div>
+          <textarea id="out" spellcheck="false" placeholder="review 完 ①② 之後，撳上面「生成提示詞」，完整提示詞會喺度出現。"></textarea>
+          <p class="hint" style="margin:6px 0 0" id="outHint">生成之後可以直接喺度再改字；改完照樣撳「複製」。</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="hd"><h2>④ AI 設定同實況</h2></div>
+        <div class="bd">
+          <details class="cfg" id="cfgDetails">
+            <summary>AI 設定（Base URL／Model／API Key）</summary>
+            <label class="f" for="ai_base">Base URL</label>
+            <input type="url" id="ai_base" list="baseList" placeholder="https://api.z.ai/api/paas/v4">
+            <datalist id="baseList">
+              <option value="https://api.z.ai/api/paas/v4">Z.ai 國際版（一般 API）</option>
+              <option value="https://api.z.ai/api/coding/paas/v4">Z.ai 國際版（Coding Plan）</option>
+              <option value="https://open.bigmodel.cn/api/paas/v4">智譜 中國版</option>
+              <option value="https://api.openai.com/v1">OpenAI 兼容</option>
+            </datalist>
+            <div class="row2">
+              <div><label class="f" for="ai_model">Model</label><input type="text" id="ai_model" list="modelList" placeholder="glm-5.3">
+                <datalist id="modelList"><option value="glm-5.3"></option></datalist></div>
+              <div><label class="f" for="ai_max">max_tokens（輸出上限）</label><input type="number" id="ai_max" min="0" step="1024"></div>
+            </div>
+            <label class="f" for="ai_key">API Key</label>
+            <div class="keyrow">
+              <input type="password" id="ai_key" autocomplete="off" placeholder="貼你嘅 API Key">
+              <button class="btn sm" id="btnShowKey" type="button">顯示</button>
+            </div>
+            <label class="chk"><input type="checkbox" id="ai_remember"> 將 API Key 記喺呢部機嘅瀏覽器（localStorage）</label>
+            <label class="chk"><input type="checkbox" id="ai_autodown"> 如果 max_tokens 超過模型上限，自動減半再試（搵到可用嘅最大值）</label>
+            <label class="chk"><input type="checkbox" id="ai_thinking"> 傳送 thinking: enabled（GLM 思考模式）</label>
+            <div class="row2">
+              <div><label class="f" for="ai_effort">reasoning_effort</label>
+                <select id="ai_effort"><option value="">唔傳</option><option value="low">low</option><option value="high">high</option><option value="max">max</option></select></div>
+              <div style="display:flex;align-items:flex-end;gap:6px;margin-top:10px">
+                <button class="btn" id="btnTest">測試連線</button>
+                <button class="btn danger" id="btnClearAI">清除 AI 設定</button>
+              </div>
+            </div>
+            <p class="hint">max_tokens 填 0 就唔傳呢個參數（由伺服器用預設）。GLM 5.3 輸出上限約 131,072；預設已經推到呢個數。</p>
+          </details>
+          <details class="cfg">
+            <summary>畀 AI 嘅指示（可改）</summary>
+            <label class="f" for="ai_sysSuggest">建議勾選</label>
+            <textarea id="ai_sysSuggest" rows="8"></textarea>
+            <label class="f" for="ai_sysReview">審核覆核</label>
+            <textarea id="ai_sysReview" rows="6"></textarea>
+            <label class="f" for="ai_sys">優化提示詞</label>
+            <textarea id="ai_sys" rows="6"></textarea>
+            <button class="btn sm" id="btnSysReset" style="margin-top:6px">全部還原預設指示</button>
+          </details>
+
+          <div class="toolbar" style="margin-top:12px">
+            <button class="btn" id="btnAI" title="將 ③ 嘅提示詞交俾 AI 針對項目改寫">✨ AI 再優化 ③ 嘅提示詞</button>
+            <button class="btn" id="btnStop" disabled>停止</button>
+            <button class="btn" id="btnCont" disabled title="撞到輸出上限時，由中斷位置繼續寫">繼續寫</button>
+          </div>
+
+          <div class="status" id="status" style="margin-top:12px">
+            <span class="dot"></span><span class="phase" id="phase">未開始</span>
+            <span class="stats" id="stats"></span>
+          </div>
+          <div class="ticker idle" id="ticker"><span id="tickerText">AI 諗緊嘅嘢會喺呢度好似走馬燈咁流過</span></div>
+          <div class="errbox" id="errbox"></div>
+          <div class="logline" id="log"></div>
+
+          <div class="lbl"><span>思考過程（reasoning） <span class="kind" id="kindLbl"></span></span><label style="cursor:pointer"><input type="checkbox" id="followThink" checked> 自動捲到最新</label></div>
+          <div class="streambox think" id="thinkBox"></div>
+          <div class="lbl"><span>AI 輸出</span><span id="resCount"></span></div>
+          <div class="streambox result" id="resBox"></div>
+          <div class="toolbar" style="margin-top:8px">
+            <button class="btn" id="btnUseAI" disabled>用 AI 版本取代 ③</button>
+            <button class="btn" id="btnCopyAI" disabled>複製 AI 輸出</button>
+            <button class="btn" id="btnReapply" disabled title="如果自動套用失敗，可以再試">重新套用建議</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+  <footer>所有資料只儲存喺你自己部機嘅瀏覽器。API Key 只會傳去你填嘅 Base URL。</footer>
+</div>
+
+<script>
+/* ========================= 條款資料 ========================= */
+const SECTIONS = [
+{ id:'deliver', title:'交付格式', desc:'點樣交個檔畀你，唔好再收到片段或者預覽。', items:[
+ ['d1',1,'輸出一個完整嘅單一 HTML 檔（{檔名}），所有 HTML、CSS、JavaScript 都內嵌喺同一個檔案，可以直接下載、雙擊打開，亦可以直接上載到 GitHub Pages 使用。'],
+ ['d2',1,'唔好用 Artifact、Canvas 或者預覽視窗交付；我要可以下載嘅 .html 檔案。'],
+ ['d3',1,'每次都輸出完整檔案，唔好只畀改動片段，亦唔好寫「其餘部分不變」或者「……省略……」。'],
+ ['d4',1,'可以用 CDN 載入外部程式庫（例如 three.js、網上字體），App 可以聯網。'],
+ ['d5',0,'唔需要另外嘅 MP3 或者圖片檔；所有素材用程式生成，或者內嵌喺 HTML 入面。'],
+ ['d6',1,'回覆時用幾句簡潔嘅說話講清楚今次做咗／改咗乜，唔好長篇大論。'],
+]},
+{ id:'work', title:'工作方式同品質把關', desc:'針對「講一樣改一樣」、「改完整壞其他嘢」呢類問題。', items:[
+ ['w1',1,'一次過做齊呢份提示詞入面所有要求，唔好分幾次做，亦唔好淨係做咗一部分就交。'],
+ ['w2',1,'我指出嘅任何問題都當係全局問題：檢查成個 App 所有同類嘅地方，一併修正，唔好淨係改我提到嗰一頁或者嗰一關。'],
+ ['w3',1,'每次改完任何嘢，都要由開始畫面開始，逐頁、逐個掣測試一次，確保冇整壞其他無關嘅功能（例如「開始」掣冇反應、入唔到下一頁）。'],
+ ['w4',1,'唔可以聲稱改好咗但實際冇改；如果有任何要求做唔到，要明確講出嚟，同埋講原因。'],
+ ['w5',1,'交付前對照呢份提示詞逐條自我檢查，喺回覆最後列出每一條嘅完成狀態（✅ 已完成／⚠️ 未完成及原因）。'],
+ ['w6',1,'修改嘅時候保留所有之前已經做好嘅功能同內容，唔好因為改一樣嘢而刪走或者簡化其他嘢。'],
+ ['w7',0,'遇到有歧義嘅要求，揀最合理嘅做法照做，然後喺回覆入面講明你點理解。'],
+]},
+{ id:'lang', title:'語言同文案', desc:'針對書面語口語混雜、句子唔通、廢話多、唔講重點。', items:[
+ ['l1',1,'全部文字用{語言}，風格統一；唔好書面語同口語混雜（例如用「呢個、唔好、入面、嘅」，唔好突然變「這個、不要、裡面、的」）。'],
+ ['l2',1,'用{用戶}一聽就明嘅字眼，唔好用深奧字、術語或者生硬嘅講法；每句都要文法自然通順，好似真人講嘢，唔好似機器砌出嚟。寫完自己讀一次。'],
+ ['l3',1,'精而簡：每講一句都先問自己有冇必要。冇必要嘅刪走，或者放到最後先講，唔好浪費用戶時間同耐性。'],
+ ['l4',1,'每一頁、每一關嘅第一句，就直接講最重要嘅重點，同埋做呢件事嘅目的同意義（點解要做）；唔好一開始先講情景。'],
+ ['l5',1,'唔好說教。要好似「Sell me this pen」咁，開場先勾起用戶嘅需求同興趣，令佢主動想用；但唔好浮誇或者虛假。'],
+ ['l6',1,'情景描述要具體清楚（邊個、喺邊、做緊乜、講咗乜），唔好含糊到用戶唔知講緊乜。'],
+ ['l7',1,'按鈕、標題、章節名稱嘅字眼要準確對應佢嘅功能；標點符號要正確（例如「第一章：」用冒號）。'],
+ ['l8',0,'因為精簡而刪走、但有教育或者理論價值嘅內容，集中放去一個獨立嘅「延伸閱讀／聽書」區，俾有興趣嘅用戶自己撳入去睇同聽。'],
+ ['l9',0,'引用學術研究或者理論時，講明出處（研究者、年份），用{用戶}聽得明嘅方式解釋，同時講清楚佢嘅適用範圍同限制，唔好誇大。'],
+]},
+{ id:'voice', title:'語音朗讀', desc:'需要讀出文字嘅 App 先剔。', items:[
+ ['v1',1,'所有見到嘅文字都要有{語言}語音朗讀，包括標題、說明、選擇題每一個選項、按鈕、角色說明同回饋訊息；要全面檢查有冇遺漏。'],
+ ['v2',1,'每個按鈕或者卡片嘅右上角內嵌一個細細嘅喇叭 icon，撳佢就讀出嗰個按鈕獨有嘅內容；唔好每段字旁邊都放一個大喇叭，搞到版面好亂。'],
+ ['v3',1,'預設開啟「自動播放語音」，跨頁、跨關卡一直保持開啟，直至用戶手動關閉為止；呢個設定要記住。'],
+ ['v4',1,'瀏覽器（尤其 iPad／iOS Safari）禁止自動播放：開 App 之後，用戶第一下撳畫面任何位置，就要解鎖並開始播放語音。'],
+ ['v5',1,'自動朗讀要設計好次序同取捨：最重要嘅重點先讀，唔需要讀嘅唔讀；唔好畫面有乜字就由頭讀到尾。'],
+ ['v6',1,'選擇題要逐個讀出選項（「第一個……、第二個……」），等未識字嘅用戶都知揀邊個。'],
+ ['v7',1,'開始遊戲或者做其他互動時，正在讀緊嘅語音要即刻停；用戶可以唔聽完就直接開始。'],
+ ['v8',1,'語音要揀啱語言（例如粵語 zh-HK）；裝置冇對應語音時要有後備方案，並提示用戶。'],
+ ['v9',0,'音效同語音嘅音量要平衡，重要嘅音效（例如警告聲）要夠大聲，唔好俾背景語音蓋過。'],
+]},
+{ id:'ui', title:'版面同介面', desc:'針對遮擋、按鈕冇狀態、撳錯返唔到轉頭、字體、目錄混亂。', items:[
+ ['u1',1,'文字面板同主要畫面／互動區分開，唔可以遮住任何要撳或者要拖嘅物件；所有元素唔好互相重疊遮擋。'],
+ ['u2',1,'響應式排版：打橫（電腦、橫放 iPad）係左畫面、右文字；打直（直放 iPad、手機）係上畫面、下文字；{平台}都要實際測試過。'],
+ ['u3',1,'按鈕狀態要清楚：已選中／開啟中嘅按鈕要一直顯示唔同顏色；「提示你撳」（例如閃動）同「已經撳咗」要用有明顯對比嘅顏色區分。'],
+ ['u4',1,'所有開關式按鈕撳多一次就還原；任何狀態、姿勢、設定都可以重設返原狀，唔可以撳錯之後返唔到轉頭。'],
+ ['u5',1,'按鈕位置固定，唔好郁嚟郁去；按鈕放喺佢控制嘅物件附近，等用戶撳嘅時候同時睇到效果。'],
+ ['u6',1,'配色要配合主題、吸引{用戶}，唔好用沉悶嘅黑白；每種顏色代表一種功能，文字同背景要有足夠對比。'],
+ ['u7',1,'字體統一用適合{用戶}閱讀嘅圓體／無襯線字體，唔好用新細明體等襯線字；要設定 iOS、Android、Windows、Mac 嘅後備字體，所有頁面（包括開始畫面同目錄）都要套用。'],
+ ['u8',1,'開始畫面要簡潔有力：一眼睇到主題關鍵字同 App 嘅價值，唔好一開始就塞大量文字；圖示同符號要一睇就明，唔好用抽象符號。'],
+ ['u9',1,'目錄結構清晰：講明成個 App 嘅主題、每一章教乜；相關嘅「學」同「練」放喺同一行（例如左學右練），唔好分開重複出現。'],
+ ['u10',1,'顯示進度：邊課聽過、邊個練習完成咗、需要全部完成嘅項目邊啲做咗邊啲未做；進度用 localStorage 記住。'],
+ ['u11',1,'流程要順：完成一步之後有清楚嘅「下一步」，唔好不停引人返目錄；揀咗選項之後自動捲動到操作區。'],
+ ['u12',0,'版面字多嘅時候要重新組織（分組、摺疊、分頁），令視覺上容易睇。'],
+]},
+{ id:'game', title:'互動同遊戲設計', desc:'針對淨係問答題、唔知啱定錯、玩極都過唔到關。', items:[
+ ['g1',1,'學習同遊戲大約各佔一半：要好玩，但唔可以為咗遊戲而犧牲學習內容，主次唔好倒置。'],
+ ['g2',1,'唔好淨係問答題；要有可以直接操控角色或者物件嘅互動（撳、拖、按住），而且每個動作都即刻見到效果同後果。'],
+ ['g3',1,'對錯回饋要大而明顯：啱就綠色、加分；錯就紅色、扣分；跟住用一句講點解。'],
+ ['g4',1,'正面鼓勵：用戶做啱咗嘅步驟要即時肯定，然後引導「仲差咩未做」；唔好無論做啱做錯都一律話「未得」。'],
+ ['g5',1,'過唔到關時要顯示具體提示，講清楚差咩先過到關。'],
+ ['g6',1,'每一關都一定可以過到：全部做啱時進度條要去到盡，並出現清楚嘅勝利畫面；要逐關實際測試。'],
+ ['g7',1,'每個按鈕同選項都要有真實效果同合理嘅計分邏輯，唔可以有「擺設」掣；計分要符合現實常識同情境（同一個做法對唔同對象可能啱、可能錯）。'],
+ ['g8',1,'未完成唔可以跳去下一關；完成咗要清楚顯示「已完成」。'],
+ ['g9',1,'動畫要同用戶操作同步：撳先郁、唔撳唔郁；連續操作時動作要流暢連貫，唔好一窒一窒。'],
+ ['g10',1,'滑鼠點擊、拖曳同旋轉鏡頭唔可以互相衝突；支援觸控同鍵盤操作，並喺畫面顯示可用嘅按鍵。'],
+ ['g11',0,'回饋同勝利訊息要合理、主語清楚（例如「你同爸爸嘅對話好成功」，而唔係「爸爸贏咗」）。'],
+]},
+{ id:'three', title:'3D、角色同動畫', desc:'有 3D 場景或者角色先剔（預設全部唔剔）。', items:[
+ ['t1',0,'用 three.js（或者更適合嘅引擎）做 3D 場景，支援放大縮小、旋轉視角，同一鍵返正面。'],
+ ['t2',0,'角色用可愛、統一嘅卡通風格（例如圓頭大眼），唔好堆砌五官搞到核突；比例適中，全身（包括對腳）都喺畫面入面。'],
+ ['t3',0,'所有姿勢同動作要符合真實人體結構同常識：檢查有冇穿模（例如膝頭穿過衫）、陷入地下、手勢有冒犯意思（例如似舉中指）、頭轉到背後等問題。'],
+ ['t4',0,'角色塊面要盡量面向觀眾（好似舞台劇唔可以背台），就算望去其他方向都要見到五官；唔同狀態之間嘅分別要一眼睇得出。'],
+ ['t5',0,'角色外形要配合身份：性別、年齡（例如長者灰頭髮）、配件（例如眼鏡要畫完整，有鏡框同鏡腳）；髮型要自然，唔好似頂帽或者飛碟。'],
+ ['t6',0,'可以揀主角嘅性別或者外形。'],
+ ['t7',0,'場景要完整、光猛：360 度轉去邊都有牆、地板、天花同燈光，唔好有漆黑一片嘅位置。'],
+ ['t8',0,'動作嘅重點部位唔可以俾衣服或者物件遮住（有需要就用半透明）。'],
+]},
+{ id:'content', title:'內容深度', desc:'教學、知識類項目適用。', items:[
+ ['c1',1,'內容要詳細、專業，但用{用戶}明白嘅語言表達；除咗我提到嘅，亦要主動補充所有相關但我冇提及嘅重要知識同技巧。'],
+ ['c2',1,'結構要配合學習心理學（由淺入深、即學即練、重複鞏固、即時回饋），令用戶容易吸收，學以致用。'],
+ ['c3',1,'設計多個真實生活場景同對象，等用戶學識喺唔同情況點樣運用、觀察同判斷。'],
+ ['c4',1,'每一章嘅內容唔可以重複或者大同小異；如果兩部分好似，就合併或者重新分工。'],
+ ['c5',0,'教識用戶「點樣諗」：遇到情況時第一時間要留意乜嘢、點樣分輕重、點樣揀做法。'],
+]},
+{ id:'tech', title:'技術', desc:'', items:[
+ ['x1',1,'程式碼結構清楚、有註解，方便之後修改；瀏覽器 console 唔可以有錯誤。'],
+ ['x2',0,'做好效能優化，喺舊款 iPad 同中價手機都要流暢。'],
+]},
+];
+
+const DEFAULT_FIELDS = {
+  name:'', file:'index.html', desc:'',
+  audience:'6 至 12 歲小朋友', lang:'廣東話口語（繁體中文）',
+  platform:'iPad（打橫同打直）、Android／iPhone 手機同電腦瀏覽器', extra:''
+};
+const FIELD_NAMES = {name:'項目名稱', file:'輸出檔名', desc:'項目描述', audience:'目標用戶', lang:'語言', platform:'平台', extra:'額外要求', mode:'提示詞類型'};
+
+/* ========================= AI 指示 ========================= */
+const DEFAULT_SYS_SUGGEST = `你係一位資深嘅產品經理兼提示詞工程師。用戶會俾你：
+(A) 佢對一個項目嘅「原始需求」；
+(B) 目前嘅「項目資料」；
+(C) 一份「條款清單」——呢啲條款會組成一份畀另一個 AI（例如 Grok）一次過完成項目嘅提示詞。
+
+你嘅任務：
+1. 先徹底理解原始需求：項目類型、目標用戶、語言、平台、交付形式，有冇語音、3D、遊戲、教學內容等。原始需求冇講嘅，按項目類型作最合理嘅推斷。
+2. 填寫項目資料（fields）：
+   - name：簡短清楚嘅項目名稱。
+   - file：合理嘅英文檔名（例如 body-language.html）。
+   - desc：將原始需求整理成清楚、有條理、完整嘅項目描述；用戶提過嘅每一個具體要求都唔可以遺漏或者扭曲。
+   - audience、lang、platform：按需求設定；呢三個值會代入條款入面嘅 {用戶}、{語言}、{平台}，所以要寫成可以直接放入句子嘅短語。
+   - extra：用戶特別強調、但條款清單冇 cover 到嘅具體要求，一行一點；冇就留空。
+   - mode：如果用戶係要改一個已經存在嘅檔案就用 "edit"，否則用 "new"。
+3. 逐條決定條款清單入面「每一條」嘅 on（true／false），並用一句寫 reason：點解呢條適合或者唔適合呢個項目。
+4. 只有當某條條款方向啱、但字眼一定要調整先貼合項目時，先提供 text（修改後全文）；唔需要改就唔好提供 text。修改時保留 {用戶}、{語言}、{平台}、{檔名} 呢啲佔位符。
+5. 如果有重要要求清單冇 cover，可以喺 add 加新條款（指明放入邊個 section id）。
+6. 每設定一個欄位、每決定一條條款，都要停一停諗清楚：
+   - 呢個設定同原始需求有冇矛盾？係咪最適合呢個項目？
+   - 同其他設定有冇衝突？（例如：冇語音就唔應該剔語音條款；唔係 3D 就唔剔 3D 條款；唔係遊戲就唔剔遊戲條款；唔係教學就唔剔教學內容條款；lang 同語言條款要一致）
+   - 唔好為咗剔而剔，亦唔好亂改字眼。揀最合理、最貼切嘅。
+7. 全部設定完之後，由頭到尾再檢查一次整體一致性，修正唔合理嘅地方，並喺 checks 列出你檢查過嘅重點同修正。
+
+輸出格式：只輸出一個 JSON 物件，唔好加任何其他文字、解釋或者 markdown code block：
+{
+  "fields": {"name":"","file":"","desc":"","audience":"","lang":"","platform":"","extra":"","mode":"new"},
+  "fieldReasons": {"name":"原因","file":"原因","desc":"原因","audience":"原因","lang":"原因","platform":"原因","extra":"原因","mode":"原因"},
+  "items": [{"id":"d1","on":true,"reason":"一句原因"}, {"id":"l1","on":true,"reason":"…","text":"（可選）修改後全文"}],
+  "add": [{"section":"lang","text":"新條款全文","reason":"原因"}],
+  "checks": ["一致性檢查重點或者修正 1", "…"],
+  "summary": "兩三句總結你點樣理解呢個項目，同埋主要取捨"
+}
+items 一定要包括清單入面每一個 id，一個都唔可以漏。所有文字用繁體中文；描述性文字用廣東話口語。`;
+
+const DEFAULT_SYS_REVIEW = `你係一位嚴格嘅審核員。用戶會俾你：原始需求、條款清單，同另一位顧問建議嘅設定（JSON）。
+
+請逐個欄位、逐條條款覆核：
+- 合唔合理？同原始需求有冇矛盾？有冇漏咗需求入面提過嘅嘢？
+- 設定之間有冇互相衝突？（例如冇語音但剔咗語音條款、唔係 3D 但剔咗 3D 條款）
+- 改過嘅字眼有冇改壞、有冇失咗原意、有冇保留 {用戶}{語言}{平台}{檔名} 佔位符？
+- 原因（reason）係咪真係支持個決定？
+修正所有問題，然後輸出同一個格式嘅「完整」JSON（fields、fieldReasons、items 要包括每一個 id、add、checks、summary）。reason 要反映最終決定；checks 要列出你改咗乜同點解（冇改就寫「已覆核，冇需要修改」）。
+只輸出 JSON，唔好加任何其他文字或者 markdown code block。`;
+
+const DEFAULT_SYS = `你係一位資深嘅提示詞工程師。用戶會俾你「項目描述」同一份準備貼俾另一個 AI（例如 Grok）嘅「通用提示詞」。
+
+請將佢改寫成一份針對呢個項目嘅完整提示詞：
+1. 保留每一條要求，一條都唔可以刪走或者弱化；保留分類同連續編號。
+2. 將通用字眼具體化到呢個項目：例如具體嘅場景、角色、章節、互動方式、計分規則、要測試嘅地方。
+3. 補充呢個項目可能遺漏、但做得好一定需要嘅要求（加喺相關分類尾，標明「（補充）」）。
+4. 語言同原文一致，用字清楚、精簡，冇廢話。
+5. 只輸出提示詞本身，唔好加前言、解釋或者總結。`;
+
+/* ========================= 儲存 ========================= */
+const KEY = 'oneShotPrompt.v1', AIKEY = 'oneShotPrompt.ai.v1';
+const LS = {
+  get(k){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+function freshState(){ return { fields:{...DEFAULT_FIELDS}, items:{}, custom:{}, mode:'new', collapsed:{}, raw:'', out:'', outSig:'', outEdited:false, aiNote:null, undo:null, opt:{allowText:true, review:false} }; }
+function normState(s){ const st = Object.assign(freshState(), s||{}); st.fields = Object.assign({...DEFAULT_FIELDS}, st.fields||{}); st.opt = Object.assign({allowText:true, review:false}, st.opt||{}); return st; }
+let state = normState(LS.get(KEY));
+let saveT; function save(){ clearTimeout(saveT); saveT = setTimeout(()=>LS.set(KEY, state), 150); }
+function flushSave(){ clearTimeout(saveT); LS.set(KEY, state); }
+window.addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushSave(); });
+
+const $ = s => document.querySelector(s);
+const el = (tag, attrs={}, ...kids) => { const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)) { if (k==='class') e.className=v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else if (v!==undefined && v!==null) e.setAttribute(k, v); }
+  for (const c of kids) if (c!==null && c!==undefined) e.append(c); return e; };
+
+function itemState(sec, it){ // it = [id,on,text]
+  const s = state.items[it[0]];
+  return { on: s && 'on' in s ? s.on : !!it[1], text: s && typeof s.text==='string' ? s.text : it[2] };
+}
+function autoGrow(t){ t.style.height='auto'; t.style.height = (t.scrollHeight+2)+'px'; }
+function growAll(){ requestAnimationFrame(()=>document.querySelectorAll('.item textarea').forEach(autoGrow)); }
+
+/* ========================= 畫條款 ========================= */
+function renderSections(){
+  const root = $('#sections'); root.innerHTML='';
+  SECTIONS.forEach(sec=>{
+    const card = el('section',{class:'card sec'+(state.collapsed[sec.id]?' collapsed':''), 'data-sec':sec.id});
+    const cnt = el('span',{class:'count'});
+    const hd = el('div',{class:'hd'},
+      el('span',{class:'chev'},'▾'), el('h2',{},sec.title), cnt, el('span',{class:'grow'}),
+      el('button',{class:'btn sm',onclick:e=>{e.stopPropagation(); setAll(sec,true);}},'全選'),
+      el('button',{class:'btn sm',onclick:e=>{e.stopPropagation(); setAll(sec,false);}},'全不選'));
+    hd.addEventListener('click',()=>{ card.classList.toggle('collapsed'); state.collapsed[sec.id]=card.classList.contains('collapsed'); save(); growAll(); });
+    const bd = el('div',{class:'bd'});
+    if (sec.desc) bd.append(el('p',{class:'desc'},sec.desc));
+    sec.items.forEach(it=> bd.append(itemRow(sec, it, false)));
+    (state.custom[sec.id]||[]).forEach(c=> bd.append(itemRow(sec, [c.id, c.on, c.text], true)));
+    const addBtn = el('button',{class:'btn sm',style:'margin-top:8px',onclick:()=>{
+      const c = {id:'c'+Date.now().toString(36), on:true, text:''};
+      (state.custom[sec.id] ||= []).push(c); save();
+      const row = itemRow(sec,[c.id,c.on,c.text],true); bd.insertBefore(row, addBtn); row.querySelector('textarea').focus(); refresh();
+    }},'＋ 加自訂條款');
+    bd.append(addBtn);
+    card.append(hd, bd); root.append(card);
+    card._cnt = cnt;
+  });
+  growAll();
+  refresh();
+}
+function whyNode(id){
+  const r = state.aiNote && state.aiNote.reasons && state.aiNote.reasons[id];
+  if (!r) return null;
+  const box = el('div',{class:'aiwhy'});
+  if (r.miss){ box.append(el('span',{class:'tag miss'},'⚠️ AI 未答'), document.createTextNode('保持原狀。可以撳 ⓪ 嘅「補答」叫 AI 再諗。')); return box; }
+  box.append(el('span',{class:'tag '+(r.added?'extra':(r.on?'yes':'no'))}, r.added ? '🤖 AI 新增' : (r.on ? '🤖 建議剔' : '🤖 建議唔剔')));
+  box.append(document.createTextNode(r.reason || '（冇講原因）'));
+  if (r.textChanged) box.append(el('span',{class:'diff'},'· AI 改咗字眼'));
+  const d = el('span',{class:'diff', 'data-diff':''}, '· 同 AI 建議唔同'); box.append(d);
+  return box;
+}
+function itemRow(sec, it, custom){
+  const id = it[0];
+  const st = custom ? {on:it[1], text:it[2]} : itemState(sec,it);
+  const row = el('div',{class:'item'+(st.on?' on':''),'data-id':id});
+  const cb = el('input',{type:'checkbox','aria-label':'使用呢條'}); cb.checked = st.on;
+  const ta = el('textarea',{rows:'1',placeholder: custom?'寫你自己嘅條款…':''}); ta.value = st.text;
+  const mid = el('div',{}, ta);
+  const why = whyNode(id); if (why) mid.append(why);
+  const acts = el('div',{class:'acts'});
+  const resetBtn = el('button',{class:'icon',title:'還原原文'},'↺');
+  const edited = el('span',{class:'edited'},'已改');
+  const markDiff = ()=>{
+    const r = state.aiNote && state.aiNote.reasons && state.aiNote.reasons[id];
+    const differs = !!r && !r.miss && r.on !== cb.checked;
+    row.classList.toggle('differs', differs);
+    const d = mid.querySelector('[data-diff]'); if (d) d.hidden = !differs;
+  };
+  const upd = ()=>{
+    if (custom){ const c = state.custom[sec.id].find(x=>x.id===id); c.on=cb.checked; c.text=ta.value; }
+    else { state.items[id] = {on:cb.checked, text:ta.value}; if (cb.checked===!!it[1] && ta.value===it[2]) delete state.items[id]; }
+    row.classList.toggle('on', cb.checked);
+    if (!custom){ const isEd = ta.value!==it[2]; resetBtn.hidden=!isEd; edited.hidden=!isEd; }
+    markDiff(); save(); refresh();
+  };
+  cb.addEventListener('change',upd);
+  ta.addEventListener('input',()=>{ autoGrow(ta); if(!cb.checked && ta.value.trim()){cb.checked=true;} upd(); });
+  if (custom){
+    acts.append(el('button',{class:'icon',title:'刪除',onclick:()=>{ state.custom[sec.id]=state.custom[sec.id].filter(x=>x.id!==id); row.remove(); save(); refresh(); }},'✕'));
+  } else {
+    resetBtn.addEventListener('click',()=>{ ta.value=it[2]; autoGrow(ta); upd(); });
+    const isEd = st.text!==it[2]; resetBtn.hidden=!isEd; edited.hidden=!isEd;
+    acts.append(resetBtn, edited);
+  }
+  row.append(cb, mid, acts);
+  markDiff();
+  return row;
+}
+function setAll(sec,on){
+  document.querySelectorAll(`[data-sec="${sec.id}"] .item`).forEach(r=>{ const cb=r.querySelector('input'); if(cb.checked!==on){cb.checked=on; cb.dispatchEvent(new Event('change'));} });
+}
+
+/* ========================= 生成 ========================= */
+const CN = ['一','二','三','四','五','六','七','八','九','十','十一','十二','十三','十四','十五'];
+function fill(t){
+  const f = state.fields;
+  return t.replaceAll('{用戶}', f.audience.trim()||'目標用戶')
+          .replaceAll('{語言}', f.lang.trim()||'指定語言')
+          .replaceAll('{平台}', f.platform.trim()||'所有目標裝置')
+          .replaceAll('{檔名}', f.file.trim()||'index.html');
+}
+function collect(){
+  const out=[];
+  SECTIONS.forEach(sec=>{
+    const list=[];
+    sec.items.forEach(it=>{ const s=itemState(sec,it); if(s.on && s.text.trim()) list.push(s.text.trim()); });
+    (state.custom[sec.id]||[]).forEach(c=>{ if(c.on && c.text.trim()) list.push(c.text.trim()); });
+    if(list.length) out.push({title:sec.title, list});
+  });
+  return out;
+}
+function generate(){
+  const f = state.fields, groups = collect(), L=[];
+  const name = f.name.trim();
+  if (state.mode==='edit'){
+    L.push(`# 任務：修改${name?`「${name}」`:'現有項目'}`);
+    L.push('我會附上現有嘅檔案。請喺佢嘅基礎上修改：先處理「今次要改」，同時下面所有要求繼續全部生效。請一次過完成，唔好分開幾次。');
+  } else {
+    L.push(`# 任務：製作${name?`「${name}」`:'以下項目'}`);
+    L.push('下面每一條要求都必須做到。請一次過完成，唔好分開幾次。');
+  }
+  if (f.desc.trim()){ L.push('', '## 項目描述', f.desc.trim()); }
+  const meta=[];
+  if (f.audience.trim()) meta.push(`- 目標用戶：${f.audience.trim()}`);
+  if (f.lang.trim()) meta.push(`- 語言：${f.lang.trim()}`);
+  if (f.platform.trim()) meta.push(`- 平台：${f.platform.trim()}`);
+  if (f.file.trim()) meta.push(`- 輸出檔名：${f.file.trim()}`);
+  if (meta.length){ L.push('', '## 基本資料', ...meta); }
+  if (f.extra.trim()){
+    L.push('', state.mode==='edit' ? '## 今次要改（最優先）' : '## 額外要求（最優先）');
+    f.extra.trim().split(/\n+/).forEach(x=>{ x=x.trim(); if(x) L.push(/^[-*•\d]/.test(x)?x:`- ${x}`); });
+  }
+  let n=0;
+  if (groups.length){
+    L.push('', '## 要求（全部必須做到）');
+    groups.forEach((g,i)=>{ L.push('', `### ${CN[i]||i+1}、${g.title}`); g.list.forEach(t=>L.push(`${++n}. ${fill(t)}`)); });
+  }
+  L.push('', '## 交付前');
+  L.push(`請逐條對照以上${n?` ${n} 條`:''}要求自我檢查同實際測試，然後先交付完整檔案。回覆最後用清單列出每一條嘅狀態：✅ 已完成／⚠️ 未完成（附原因）。`);
+  return L.join('\n');
+}
+function sig(){ return JSON.stringify([state.fields, state.items, state.custom, state.mode]); }
+function refresh(){
+  let tot=0, on=0;
+  document.querySelectorAll('.sec').forEach(card=>{
+    const rows=[...card.querySelectorAll('.item')], c=rows.filter(r=>r.classList.contains('on')).length;
+    card._cnt.textContent = `${c}/${rows.length}`; tot+=rows.length; on+=c;
+  });
+  $('#totalCount').textContent = `已揀 ${on}／${tot} 條`;
+  const diffs = document.querySelectorAll('.item.differs').length;
+  const dc = $('#diffCount'); dc.hidden = !diffs; dc.textContent = `${diffs} 條同 AI 建議唔同`;
+  const out = $('#out').value;
+  $('#outCount').textContent = out ? `${out.length.toLocaleString()} 字` : '未生成';
+  $('#staleBanner').classList.toggle('show', !!state.out && state.outSig !== sig());
+}
+function doGenerate(){
+  if (state.outEdited && state.out && !confirm('你手動改過 ③ 嘅提示詞，重新生成會覆蓋。繼續？')) return;
+  state.out = generate(); state.outSig = sig(); state.outEdited = false;
+  $('#out').value = state.out; save(); refresh();
+  if (window.matchMedia('(max-width:980px)').matches) $('#out').scrollIntoView({behavior:'smooth', block:'start'});
+  const b=$('#btnGen'); b.textContent='✓ 已生成'; clearTimeout(b._t); b._t=setTimeout(()=>b.textContent='⚡ 生成提示詞',1400);
+}
+$('#btnGen').onclick = doGenerate;
+
+/* ========================= 項目資料、模式 ========================= */
+document.querySelectorAll('[data-field]').forEach(inp=>{
+  inp.addEventListener('input',()=>{ state.fields[inp.dataset.field]=inp.value; save(); refresh(); });
+});
+function setMode(m){
+  state.mode=m; save();
+  document.querySelectorAll('#modeSeg button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.mode===m)));
+  $('#extraLbl').textContent = m==='edit' ? '今次要改（一行一點，會放喺最前面）' : '額外要求（會放喺條款前面）';
+  refresh();
+}
+document.querySelectorAll('#modeSeg button').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+$('#raw').addEventListener('input',e=>{ state.raw=e.target.value; save(); });
+$('#optAllowText').addEventListener('change',e=>{ state.opt.allowText=e.target.checked; save(); });
+$('#optReview').addEventListener('change',e=>{ state.opt.review=e.target.checked; save(); });
+
+function renderFieldReasons(){
+  const fr = (state.aiNote && state.aiNote.fieldReasons) || {};
+  ['mode', ...Object.keys(DEFAULT_FIELDS)].forEach(k=>{
+    const box = $('#why_'+k); if(!box) return;
+    box.innerHTML='';
+    if (fr[k]){ box.append(el('span',{class:'tag extra'},'🤖 點解咁填'), document.createTextNode(String(fr[k]))); box.hidden=false; }
+    else box.hidden=true;
+  });
+}
+function renderAINote(){
+  const box = $('#aiNote'); box.innerHTML='';
+  const n = state.aiNote;
+  if (!n) { if (state.undo) box.append(el('div',{class:'toolbar',style:'margin-top:10px'}, undoBtn())); return; }
+  const s = n.stats||{};
+  const wrap = el('div',{class:'ainote'});
+  wrap.append(el('h3',{}, `🤖 AI 建議已套用${n.label?`（${n.label}）`:''}`));
+  if (n.summary) wrap.append(el('div',{}, n.summary));
+  const parts = [`建議剔 ${s.nOn??0} 條`, `唔剔 ${s.nOff??0} 條`, `改變勾選 ${s.nChanged??0} 條`];
+  if (s.nText) parts.push(`改字眼 ${s.nText} 條`);
+  if (s.nAdd) parts.push(`新增 ${s.nAdd} 條`);
+  if (s.nMiss) parts.push(`⚠️ AI 漏答 ${s.nMiss} 條（保持原狀）`);
+  wrap.append(el('div',{class:'nums'}, parts.join(' · ')));
+  if (n.checks && n.checks.length){
+    const d = el('details',{}, el('summary',{},`AI 自我檢查（${n.checks.length} 點）`));
+    const ul = el('ul'); n.checks.forEach(c=>ul.append(el('li',{},c))); d.append(ul); wrap.append(d);
+  }
+  wrap.append(el('div',{class:'hint',style:'margin-top:6px'},'下面 ①② 每一格都寫咗 AI 嘅原因。你改過、同 AI 唔同嘅格會有橙色框。review 完就去 ③ 撳「生成提示詞」。'));
+  const tb = el('div',{class:'toolbar',style:'margin-top:8px'});
+  if (n.missing && n.missing.length) tb.append(el('button',{class:'btn sm pri',onclick:fillMissing},`🤖 叫 AI 補答漏咗嘅 ${n.missing.length} 條`));
+  if (state.undo) tb.append(undoBtn());
+  tb.append(el('button',{class:'btn sm',onclick:()=>{ state.aiNote=null; save(); initUI(); }},'收起 AI 註解'));
+  wrap.append(tb);
+  box.append(wrap);
+}
+function undoBtn(){
+  return el('button',{class:'btn sm',onclick:()=>{
+    if(!state.undo) return;
+    const u = state.undo;
+    state.fields=u.fields; state.items=u.items; state.custom=u.custom; state.mode=u.mode; state.aiNote=u.aiNote; state.undo=null;
+    save(); initUI();
+  }},'↶ 撤銷今次 AI 建議');
+}
+
+/* 搜尋、展開 */
+$('#search').addEventListener('input',e=>{
+  const q=e.target.value.trim().toLowerCase();
+  document.querySelectorAll('.sec').forEach(card=>{
+    let any=false;
+    card.querySelectorAll('.item').forEach(r=>{ const hit=!q || r.textContent.toLowerCase().includes(q) || r.querySelector('textarea').value.toLowerCase().includes(q); r.classList.toggle('hidden',!hit); any ||= hit; });
+    card.style.display = any||!q ? '' : 'none';
+    if(q && any) card.classList.remove('collapsed');
+  });
+  growAll();
+});
+$('#btnExpand').onclick=()=>{ document.querySelectorAll('.sec').forEach(c=>{c.classList.remove('collapsed'); state.collapsed[c.dataset.sec]=false;}); save(); growAll(); };
+$('#btnCollapse').onclick=()=>{ document.querySelectorAll('.sec').forEach(c=>{c.classList.add('collapsed'); state.collapsed[c.dataset.sec]=true;}); save(); };
+
+/* 輸出 */
+$('#out').addEventListener('input',()=>{ state.out=$('#out').value; state.outEdited=true; if(!state.outSig) state.outSig=sig(); save(); refresh(); });
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); return true; }
+  catch(e){ const ta=el('textarea',{style:'position:fixed;left:-9999px'}); ta.value=t; document.body.append(ta); ta.select(); let ok=false; try{ok=document.execCommand('copy');}catch(_){} ta.remove(); return ok; }
+}
+function flashCopied(){ const m=$('#copiedMsg'); m.hidden=false; clearTimeout(m._t); m._t=setTimeout(()=>m.hidden=true,1600); }
+$('#btnCopy').onclick=async()=>{
+  if (!$('#out').value.trim()){ if(!confirm('仲未生成提示詞。而家生成再複製？')) return; doGenerate(); }
+  else if ($('#staleBanner').classList.contains('show') && confirm('設定改過但未重新生成。要唔要先生成最新版本再複製？\n（撳「取消」就複製舊版本）')) doGenerate();
+  if(await copyText($('#out').value)) flashCopied();
+};
+
+/* 匯出入、還原 */
+$('#btnExport').onclick=()=>{
+  const {undo, ...rest} = state;
+  const blob=new Blob([JSON.stringify(rest,null,2)],{type:'application/json'});
+  const a=el('a',{href:URL.createObjectURL(blob),download:'prompt-builder-settings.json'}); document.body.append(a); a.click(); a.remove();
+};
+$('#btnImport').onclick=()=>$('#fileImport').click();
+$('#fileImport').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ state=normState(JSON.parse(await f.text())); save(); initUI(); }
+  catch(err){ alert('匯入失敗：檔案唔係正確嘅設定 JSON'); }
+  e.target.value='';
+};
+$('#btnResetAll').onclick=()=>{ if(!confirm('還原所有勾選、修改、原始需求同項目資料？（AI 設定唔會受影響）')) return; state=freshState(); save(); initUI(); };
+
+function initUI(){
+  document.querySelectorAll('[data-field]').forEach(inp=>inp.value = state.fields[inp.dataset.field] ?? '');
+  $('#raw').value = state.raw || '';
+  $('#optAllowText').checked = !!state.opt.allowText;
+  $('#optReview').checked = !!state.opt.review;
+  $('#out').value = state.out || '';
+  renderSections(); setMode(state.mode||'new'); renderFieldReasons(); renderAINote(); refresh();
+}
+
+/* ========================= AI 設定 ========================= */
+const AI_DEFAULT = { base:'https://api.z.ai/api/paas/v4', model:'glm-5.3', max:131072, key:'', remember:true, autodown:true, thinking:true, effort:'max', sys:DEFAULT_SYS, sysSuggest:DEFAULT_SYS_SUGGEST, sysReview:DEFAULT_SYS_REVIEW };
+let ai = Object.assign({...AI_DEFAULT}, LS.get(AIKEY)||{});
+const aiEls = { base:$('#ai_base'), model:$('#ai_model'), max:$('#ai_max'), key:$('#ai_key'), remember:$('#ai_remember'), autodown:$('#ai_autodown'), thinking:$('#ai_thinking'), effort:$('#ai_effort'), sys:$('#ai_sys'), sysSuggest:$('#ai_sysSuggest'), sysReview:$('#ai_sysReview') };
+function loadAI(){
+  for (const [k,e] of Object.entries(aiEls)){ if(e.type==='checkbox') e.checked=!!ai[k]; else e.value = ai[k] ?? ''; }
+  if (!ai.base || !ai.key) $('#cfgDetails').open = true;
+}
+function saveAI(){
+  for (const [k,e] of Object.entries(aiEls)){ ai[k] = e.type==='checkbox' ? e.checked : (e.type==='number' ? Number(e.value||0) : e.value); }
+  const toStore = {...ai}; if(!ai.remember) toStore.key='';
+  LS.set(AIKEY, toStore);
+}
+Object.values(aiEls).forEach(e=>e.addEventListener(e.type==='checkbox'||e.tagName==='SELECT'?'change':'input', saveAI));
+$('#btnShowKey').onclick=()=>{ const k=aiEls.key; k.type = k.type==='password'?'text':'password'; $('#btnShowKey').textContent = k.type==='password'?'顯示':'隱藏'; };
+let learnedMax = LS.get(AIKEY+'.learned') || {};
+$('#btnClearAI').onclick=()=>{ if(!confirm('清除已儲存嘅 Base URL、Model、API Key 同 AI 設定？')) return; LS.del(AIKEY); LS.del(AIKEY+'.learned'); learnedMax={}; ai={...AI_DEFAULT}; loadAI(); };
+$('#btnSysReset').onclick=()=>{ aiEls.sys.value=DEFAULT_SYS; aiEls.sysSuggest.value=DEFAULT_SYS_SUGGEST; aiEls.sysReview.value=DEFAULT_SYS_REVIEW; saveAI(); };
+
+/* ========================= 串流 ========================= */
+const ui = {
+  status:$('#status'), phase:$('#phase'), stats:$('#stats'), ticker:$('#ticker'), tickerText:$('#tickerText'),
+  mStatus:$('#miniStatus'), mPhase:$('#miniPhase'), mStats:$('#miniStats'), mTicker:$('#miniTicker'), mTickerText:$('#miniTickerText'),
+  think:$('#thinkBox'), res:$('#resBox'), err:$('#errbox'), log:$('#log'), resCount:$('#resCount')
+};
+const KIND_LABEL = { suggest:'（建議勾選）', review:'（審核覆核）', optimize:'（優化提示詞）', test:'（測試連線）' };
+let run = null;
+function setPhase(cls, label){
+  ui.status.className='status st-'+cls; ui.phase.textContent=label;
+  ui.mStatus.className='status st-'+cls; ui.mPhase.textContent=label;
+}
+function logLine(s){ ui.log.textContent += (ui.log.textContent?'\n':'') + s; }
+function showErr(s){ ui.err.textContent=s; ui.err.classList.add('show'); }
+function fmtTime(ms){ const s=Math.floor(ms/1000); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
+function setTicker(text, caret){
+  for (const t of [ui.tickerText, ui.mTickerText]){ t.innerHTML=''; t.append(document.createTextNode(text)); if(caret) t.append(el('span',{class:'caret'})); }
+}
+function paint(){
+  if(!run) return;
+  const r=run, ms=(Date.now()-r.t0);
+  ui.think.textContent = r.think;
+  ui.res.textContent = r.text;
+  if ($('#followThink').checked) ui.think.scrollTop = ui.think.scrollHeight;
+  ui.res.scrollTop = ui.res.scrollHeight;
+  if (r.active){ const tail = (r.phaseNow==='write' ? r.text : r.think).slice(-160).replace(/\s+/g,' '); setTicker(tail||'等緊第一個字…', true); }
+  const cps = ms>0 ? ((r.think.length+r.text.length)/(ms/1000)).toFixed(0) : 0;
+  let s = `⏱ ${fmtTime(ms)} · 思考 ${r.think.length.toLocaleString()} 字 · 輸出 ${r.text.length.toLocaleString()} 字 · ${cps} 字/秒`;
+  ui.mStats.textContent = `${KIND_LABEL[r.kind]||''} ⏱ ${fmtTime(ms)} · 思考 ${r.think.length.toLocaleString()} 字 · 輸出 ${r.text.length.toLocaleString()} 字`;
+  if (r.maxUsed) s += ` · max_tokens ${r.maxUsed.toLocaleString()}`;
+  if (r.usage){ const u=r.usage, rt=u.completion_tokens_details?.reasoning_tokens; s += ` · tokens 入 ${u.prompt_tokens??'?'} / 出 ${u.completion_tokens??'?'}${rt?`（思考 ${rt}）`:''}`; }
+  ui.stats.textContent = s;
+  ui.resCount.textContent = r.text ? `${r.text.length.toLocaleString()} 字` : '';
+}
+function schedulePaint(){ if(run && !run.raf){ run.raf=requestAnimationFrame(()=>{ if(run){run.raf=0; paint();} }); } }
+let tick=null;
+function setBusy(b){
+  for (const id of ['#btnAI','#btnTest','#btnSuggest']) $(id).disabled=b;
+  $('#btnStop').disabled=!b; $('#btnStop2').disabled=!b;
+  if (b){ $('#btnCont').disabled=true; $('#btnUseAI').disabled=true; $('#btnCopyAI').disabled=true; $('#btnReapply').disabled=true; ui.ticker.classList.remove('idle'); ui.mTicker.classList.remove('idle'); clearInterval(tick); tick=setInterval(paint,500); }
+  else { clearInterval(tick); ui.ticker.classList.add('idle'); ui.mTicker.classList.add('idle'); }
+}
+function endpoint(){
+  let b=(ai.base||'').trim().replace(/\/+$/,'');
+  if(!/\/chat\/completions$/.test(b)) b+='/chat/completions';
+  return b;
+}
+function looksLikeMaxTokErr(status, txt){
+  return (status===400||status===422) && /max[_ ]?(completion_)?tokens|max_output|output.*token|token.*(limit|exceed|maximum|range)|超出|超过|範圍|范围/i.test(txt);
+}
+async function streamOnce(messages, maxTok){
+  const body = { model: ai.model.trim(), messages, stream:true };
+  if (maxTok>0) body.max_tokens = maxTok;
+  if (ai.thinking) body.thinking = { type:'enabled' };
+  if (ai.effort) body.reasoning_effort = ai.effort;
+  const res = await fetch(endpoint(), {
+    method:'POST', signal: run.ctrl.signal,
+    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+ai.key.trim(), 'Accept':'text/event-stream' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok){ const t = await res.text().catch(()=> ''); const e=new Error(`HTTP ${res.status}：${t.slice(0,1500)}`); e.status=res.status; e.body=t; throw e; }
+  const ct = res.headers.get('content-type')||'';
+  if (ct.includes('application/json')){ // 伺服器冇串流
+    const j = await res.json(); const m=j.choices?.[0]?.message||{};
+    run.think += m.reasoning_content||m.reasoning||''; run.text += m.content||''; run.finish=j.choices?.[0]?.finish_reason; run.usage=j.usage; run.gotData=true; schedulePaint(); return;
+  }
+  const reader = res.body.getReader(), dec = new TextDecoder(); let buf='';
+  while(true){
+    const {value, done} = await reader.read(); if (done) break;
+    buf += dec.decode(value, {stream:true});
+    let i;
+    while((i = buf.indexOf('\n')) >= 0){
+      const line = buf.slice(0,i).trim(); buf = buf.slice(i+1);
+      if (!line.startsWith('data:')) continue;
+      const d = line.slice(5).trim(); if (!d || d==='[DONE]') continue;
+      let j; try{ j=JSON.parse(d); }catch(e){ continue; }
+      if (j.error) throw new Error('伺服器錯誤：'+JSON.stringify(j.error));
+      const ch = j.choices && j.choices[0];
+      if (ch){
+        const de = ch.delta || ch.message || {};
+        const r = de.reasoning_content ?? de.reasoning ?? '';
+        if (r){ run.think += r; if(run.phaseNow!=='think'){ run.phaseNow='think'; setPhase('think','思考中…'); } }
+        if (de.content){ run.text += de.content; if(run.phaseNow!=='write'){ run.phaseNow='write'; setPhase('write','輸出中…'); } }
+        if (ch.finish_reason) run.finish = ch.finish_reason;
+      }
+      if (j.usage) run.usage = j.usage;
+      run.gotData = true; schedulePaint();
+    }
+  }
+}
+/* opts: {kind, onDone, append} */
+async function startRun(messages, opts={}){
+  saveAI();
+  ui.err.classList.remove('show');
+  if (!ai.base.trim() || !ai.model.trim() || !ai.key.trim()){
+    $('#cfgDetails').open=true; showErr('請先喺 ④ 填 Base URL、Model 同 API Key。');
+    setPhase('err','未設定 AI'); $('#cfgDetails').scrollIntoView({behavior:'smooth',block:'center'}); return;
+  }
+  const prev = run, append = !!opts.append && prev;
+  run = { ctrl:new AbortController(), think: append?prev.think+'\n\n——（繼續）——\n\n':'', text: append?prev.text:'', t0:Date.now(), finish:null, usage:null,
+          active:true, phaseNow:'connect', raf:0, maxUsed:0, gotData:false,
+          base: append?prev.base:messages, kind: append?prev.kind:(opts.kind||'test'), onDone: append?prev.onDone:opts.onDone };
+  if(!append) ui.log.textContent='';
+  $('#kindLbl').textContent = KIND_LABEL[run.kind]||'';
+  setBusy(true); setPhase('connect','連線中…'); paint();
+  const lkey = ai.base.trim()+'|'+ai.model.trim();
+  let maxTok = Number(ai.max)||0;
+  if (maxTok && learnedMax[lkey] && learnedMax[lkey] < maxTok) maxTok = learnedMax[lkey];
+  let ok=false;
+  try{
+    for(;;){
+      try{ run.maxUsed=maxTok; run.gotData=false; await streamOnce(messages, maxTok); break; }
+      catch(e){
+        if (e.name!=='AbortError' && ai.autodown && maxTok>1024 && looksLikeMaxTokErr(e.status, e.body||'') && !run.gotData){
+          const next = Math.max(1024, Math.floor(maxTok/2));
+          logLine(`max_tokens ${maxTok.toLocaleString()} 被拒，自動改用 ${next.toLocaleString()} 再試…`);
+          maxTok = next; setPhase('connect','重試中…'); continue;
+        }
+        throw e;
+      }
+    }
+    if (maxTok && maxTok!==Number(ai.max)){ learnedMax[lkey]=maxTok; LS.set(AIKEY+'.learned', learnedMax); logLine(`呢個伺服器接受嘅 max_tokens 係 ${maxTok.toLocaleString()}（設定入面嘅數字冇改）。`); }
+    if (run.finish==='length'){
+      setPhase('len','撞到輸出上限');
+      showErr(`模型因為輸出上限（max_tokens${maxTok?' = '+maxTok.toLocaleString():''}）停咗。撳 ④ 嘅「繼續寫」可以由中斷位置接落去。`);
+      $('#btnCont').disabled=false;
+    } else if (!run.text && run.think){
+      setPhase('len','只有思考、冇輸出'); showErr('模型諗完但未出正文（可能思考用盡咗額度）。撳 ④ 嘅「繼續寫」叫佢直接輸出。'); $('#btnCont').disabled=false;
+    } else {
+      setPhase('done','完成 ✓'); ok=true;
+    }
+  }catch(e){
+    if (e.name==='AbortError'){ setPhase('err','已停止'); if(run.text) $('#btnCont').disabled=false; }
+    else if (e instanceof TypeError){ setPhase('err','連唔到'); showErr('連唔到伺服器。可能原因：\n• Base URL 錯（應該係 …/v4 呢類，唔使加 /chat/completions）\n• 網絡問題\n• 伺服器唔容許瀏覽器直接呼叫（CORS）——試吓將呢個 HTML 放上 GitHub Pages 或者用本機伺服器開\n\n技術細節：'+e.message); }
+    else { setPhase('err','出錯'); showErr(e.message + (e.status===401?'\n\n→ API Key 唔啱或者過期。':'')); }
+  }finally{
+    run.active=false; setBusy(false); paint();
+    setTicker(ok ? '完成。' : ui.phase.textContent, false);
+    const has = !!run.text.trim();
+    $('#btnUseAI').disabled = !has || run.kind!=='optimize';
+    $('#btnCopyAI').disabled = !has;
+    $('#btnReapply').disabled = !has || !(run.kind==='suggest'||run.kind==='review');
+  }
+  if (ok && run.onDone){ try{ run.onDone(run); }catch(e){ showErr(e.message); } }
+}
+$('#btnStop').onclick=$('#btnStop2').onclick=()=>{ if(run) run.ctrl.abort(); };
+$('#btnCont').onclick=()=>{
+  if(!run) return;
+  const msgs=[...run.base,
+    {role:'assistant', content: run.text},
+    {role:'user', content: run.text ? '你頭先因為長度上限中斷咗。請由中斷嘅位置無縫繼續寫落去，唔好重複已經寫咗嘅內容，唔好加任何開場白。' : '請直接輸出最終結果，唔使再解釋。'}];
+  startRun(msgs, {append:true});
+};
+
+/* ========================= AI 建議勾選 ========================= */
+function catalogue(){
+  return SECTIONS.map(sec=>({
+    section: sec.id, title: sec.title, note: sec.desc,
+    items: [ ...sec.items.map(it=>({id:it[0], text:itemState(sec,it).text})),
+             ...(state.custom[sec.id]||[]).map(c=>({id:c.id, text:c.text, custom:true})) ]
+  }));
+}
+function suggestUserMsg(only){
+  let cat = catalogue();
+  if (only){ const set=new Set(only); cat = cat.map(c=>({...c, items:c.items.filter(i=>set.has(i.id))})).filter(c=>c.items.length); }
+  return `(A) 原始需求：\n<<<\n${state.raw.trim()}\n>>>\n\n(B) 目前項目資料：\n${JSON.stringify({...state.fields, mode:state.mode}, null, 1)}\n\n(C) 條款清單（每一個 id 都要回覆）：\n${JSON.stringify(cat, null, 1)}\n\n${state.opt.allowText ? '容許你喺有需要時提供 text 微調條款字眼。' : '今次唔好提供 text，唔可以改條款字眼，只決定 on／off。'}`;
+}
+function extractJSON(t){
+  let s = String(t).trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
+  const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a<0 || b<=a) throw new Error('AI 回覆入面搵唔到 JSON。');
+  s = s.slice(a, b+1);
+  try{ return JSON.parse(s); }
+  catch(e){ try{ return JSON.parse(s.replace(/,\s*([}\]])/g,'$1')); } catch(e2){ throw new Error('AI 回覆嘅 JSON 格式唔完整：'+e2.message); } }
+}
+const isTrue = v => v===true || v==='true' || v===1;
+function applySuggestion(j, label, merge=false){
+  state.undo = JSON.parse(JSON.stringify({fields:state.fields, items:state.items, custom:state.custom, mode:state.mode, aiNote:state.aiNote}));
+  const allowText = !!state.opt.allowText;
+  const prevNote = merge && state.aiNote ? state.aiNote : null;
+  if (j.fields && typeof j.fields==='object'){
+    for (const k of Object.keys(DEFAULT_FIELDS)) if (typeof j.fields[k]==='string' && (!merge || j.fields[k].trim())) state.fields[k]=j.fields[k];
+    if (j.fields.mode==='edit' || j.fields.mode==='new') state.mode=j.fields.mode;
+  }
+  const map = new Map((Array.isArray(j.items)?j.items:[]).filter(x=>x&&x.id!=null).map(x=>[String(x.id),x]));
+  const reasons = prevNote ? {...prevNote.reasons} : {};
+  const ps = (prevNote && prevNote.stats) || {};
+  let nText=merge?(ps.nText||0):0, nChanged=merge?(ps.nChanged||0):0, nAdd=merge?(ps.nAdd||0):0;
+  const decide = (id, cur, s, setFn)=>{
+    if(!s){ if(!merge || !reasons[id]) reasons[id]={on:cur.on, miss:true}; return; }
+    const on = isTrue(s.on);
+    let text = cur.text;
+    if (allowText && typeof s.text==='string' && s.text.trim() && s.text.trim()!==cur.text){ text=s.text.trim(); nText++; }
+    if (on!==cur.on) nChanged++;
+    setFn(on, text);
+    reasons[id]={on, reason:String(s.reason||''), textChanged:text!==cur.text};
+  };
+  SECTIONS.forEach(sec=>{
+    sec.items.forEach(it=>{
+      const id=it[0];
+      decide(id, itemState(sec,it), map.get(id), (on,text)=>{ state.items[id]={on,text}; if(on===!!it[1] && text===it[2]) delete state.items[id]; });
+    });
+    (state.custom[sec.id]||[]).forEach(c=>{
+      if (reasons[c.id] && reasons[c.id].added && !map.has(c.id)) return;
+      decide(c.id, {on:c.on, text:c.text}, map.get(c.id), (on,text)=>{ c.on=on; c.text=text; });
+    });
+  });
+  (Array.isArray(j.add)?j.add:[]).forEach(a=>{
+    if(!a || !String(a.text||'').trim()) return;
+    const sid = SECTIONS.some(s=>s.id===a.section) ? a.section : SECTIONS[SECTIONS.length-1].id;
+    const c = {id:'a'+Date.now().toString(36)+(nAdd), on:true, text:String(a.text).trim()};
+    (state.custom[sid] ||= []).push(c);
+    reasons[c.id] = {on:true, reason:String(a.reason||''), added:true}; nAdd++;
+  });
+  let nOn=0, nOff=0, nMiss=0; const missing=[];
+  Object.entries(reasons).forEach(([id,r])=>{ if(r.miss){ nMiss++; missing.push(id); } else if(r.on) nOn++; else nOff++; });
+  const fr = prevNote ? {...prevNote.fieldReasons} : {};
+  if (j.fieldReasons && typeof j.fieldReasons==='object') for (const [k,v] of Object.entries(j.fieldReasons)) if (String(v).trim()) fr[k]=String(v);
+  const checks = [ ...(prevNote ? prevNote.checks||[] : []), ...(Array.isArray(j.checks)?j.checks.map(String):[]) ];
+  state.aiNote = { summary: (merge && prevNote && !j.summary) ? prevNote.summary : String(j.summary||''), checks, reasons, fieldReasons:fr,
+                   stats:{nOn,nOff,nText,nMiss,nChanged,nAdd}, missing, label: merge ? (prevNote?.label||'')+' ＋補答' : label, at:Date.now() };
+  save(); initUI();
+  $('#aiNote').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+let lastParsed = null;
+function onSuggestDone(r){
+  const j = extractJSON(r.text); lastParsed = j;
+  if (state.opt.review){
+    logLine('建議完成，開始審核覆核…');
+    const msgs = [
+      {role:'system', content: ai.sysReview || DEFAULT_SYS_REVIEW},
+      {role:'user', content: suggestUserMsg() + `\n\n(D) 顧問建議嘅設定 JSON：\n${JSON.stringify(j)}`}
+    ];
+    setTimeout(()=>startRun(msgs, {kind:'review', onDone:onReviewDone}), 50);
+  } else {
+    applySuggestion(j, '單次建議');
+  }
+}
+function onReviewDone(r){
+  let j; try{ j = extractJSON(r.text); }
+  catch(e){ if (lastParsed){ applySuggestion(lastParsed,'審核失敗，用返第一次建議'); showErr('審核回覆解讀唔到，已經套用第一次嘅建議。\n'+e.message); return; } throw e; }
+  applySuggestion(j, '已經審核覆核');
+}
+function fillMissing(){
+  const miss = (state.aiNote && state.aiNote.missing) || []; if(!miss.length) return;
+  const decided = Object.entries(state.aiNote.reasons).filter(([,r])=>!r.miss).map(([id,r])=>`${id}:${r.on?'剔':'唔剔'}`).join('、');
+  startRun([
+    {role:'system', content: ai.sysSuggest || DEFAULT_SYS_SUGGEST},
+    {role:'user', content: suggestUserMsg(miss) + `\n\n注意：今次只需要回覆上面 (C) 入面嘅 ${miss.length} 條（之前漏答咗）。其他條款已經決定：${decided||'（冇）'}。你嘅決定要同呢啲已決定嘅設定保持一致。fields 同 fieldReasons 可以留空，add 留空，checks 寫你今次嘅一致性檢查。`}
+  ], {kind:'suggest', onDone:r=>{ applySuggestion(extractJSON(r.text), '補答', true); }});
+}
+$('#btnSuggest').onclick=()=>{
+  if (!state.raw.trim()){ $('#raw').focus(); setPhase('err','請先寫原始需求'); return; }
+  startRun([
+    {role:'system', content: ai.sysSuggest || DEFAULT_SYS_SUGGEST},
+    {role:'user', content: suggestUserMsg()}
+  ], {kind:'suggest', onDone:onSuggestDone});
+};
+$('#btnReapply').onclick=()=>{
+  if(!run || !run.text.trim()) return;
+  try{ const j=extractJSON(run.text); applySuggestion(j, run.kind==='review'?'已經審核覆核':'單次建議'); ui.err.classList.remove('show'); }
+  catch(e){ showErr(e.message); }
+};
+
+/* ========================= AI 優化 ③ ========================= */
+$('#btnAI').onclick=()=>{
+  if (!$('#out').value.trim()) doGenerate();
+  if (!state.fields.desc.trim() && !confirm('你未填「項目描述」，AI 會好難針對你嘅項目優化。照樣繼續？')) return;
+  startRun([
+    {role:'system', content: ai.sys || DEFAULT_SYS},
+    {role:'user', content: `項目描述：\n${state.fields.desc.trim()||state.raw.trim()||'（未填，請根據提示詞內容推斷）'}\n\n通用提示詞：\n<<<\n${$('#out').value}\n>>>`}
+  ], {kind:'optimize'});
+};
+$('#btnTest').onclick=()=>startRun([{role:'user',content:'請用一句廣東話回覆：「連線成功」，再講你係咩模型。'}], {kind:'test'});
+$('#btnUseAI').onclick=()=>{
+  if(!run||!run.text.trim()) return;
+  state.out=run.text.trim(); state.outEdited=true; state.outSig=sig(); $('#out').value=state.out; save(); refresh();
+  $('#out').scrollIntoView({behavior:'smooth',block:'center'});
+};
+$('#btnCopyAI').onclick=async()=>{ if(run && await copyText(run.text.trim())) flashCopied(); };
+
+/* ========================= 開始 ========================= */
+loadAI();
+initUI();
+window.addEventListener('resize',()=>{ clearTimeout(window._rz); window._rz=setTimeout(growAll,150); });
+</script>
+</body>
+</html>
