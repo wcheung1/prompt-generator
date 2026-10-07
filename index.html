@@ -98,6 +98,8 @@ textarea{resize:vertical}
 .item .acts{display:flex;flex-direction:column;gap:4px;margin-top:4px;align-items:center}
 .item .edited{font-size:11px;color:var(--warn)}
 .item.hidden{display:none}
+.item.na{opacity:.55}
+.item.na .nanote{font-size:12px;color:var(--warn);margin:3px 8px 0}
 .icon{border:0;background:transparent;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;border-radius:6px}
 .icon:hover{color:var(--accent);background:var(--panel2)}
 
@@ -193,6 +195,13 @@ footer{margin-top:24px;color:var(--muted);font-size:12px;text-align:center}
             </div>
           </div>
           <div class="aiwhy" id="why_mode" hidden></div>
+          <label class="f" for="f_target">提示詞會貼去邊度用？</label>
+          <select id="f_target" data-field="target">
+            <option value="grok-chat">Grok 對話（直接出 HTML 檔）</option>
+            <option value="grok-build">Grok Build／App Builder（有預覽同部署）</option>
+            <option value="other">其他 AI（ChatGPT、Claude、Gemini 等）</option>
+          </select>
+          <div class="hint" id="targetHint" style="margin-top:4px"></div>
           <div class="row2">
             <div><label class="f" for="f_name">項目名稱</label><input type="text" id="f_name" data-field="name" placeholder="例如：身體語言訓練 App"><div class="aiwhy" id="why_name" hidden></div></div>
             <div><label class="f" for="f_file">輸出檔名</label><input type="text" id="f_file" data-field="file" placeholder="例如：body-language.html"><div class="aiwhy" id="why_file" hidden></div></div>
@@ -210,6 +219,12 @@ footer{margin-top:24px;color:var(--muted);font-size:12px;text-align:center}
           <label class="f" for="f_extra" id="extraLbl">額外要求（會放喺條款前面）</label>
           <textarea id="f_extra" data-field="extra" rows="3" placeholder="條款冇 cover 到嘅具體要求，一行一點。"></textarea>
           <div class="aiwhy" id="why_extra" hidden></div>
+          <label class="f" for="f_top">最重要（3–7 點，做唔到就唔算完成；會放喺提示詞最前面）</label>
+          <textarea id="f_top" data-field="top" rows="4" placeholder="呢個項目最獨特、最容易做錯嘅核心，一行一點。"></textarea>
+          <div class="aiwhy" id="why_top" hidden></div>
+          <label class="f" for="f_tests">驗收測試（一行一個：做乜 → 應該見到乜）</label>
+          <textarea id="f_tests" data-field="tests" rows="5" placeholder="例如：唔望左右就直接過馬路 → 唔當過關，並提示要先望清楚"></textarea>
+          <div class="aiwhy" id="why_tests" hidden></div>
         </div>
       </section>
 
@@ -287,6 +302,8 @@ footer{margin-top:24px;color:var(--muted);font-size:12px;text-align:center}
             <textarea id="ai_sysReview" rows="6"></textarea>
             <label class="f" for="ai_sys">優化提示詞</label>
             <textarea id="ai_sys" rows="6"></textarea>
+            <label class="f" for="ai_sysFollow">跟進修改</label>
+            <textarea id="ai_sysFollow" rows="6"></textarea>
             <button class="btn sm" id="btnSysReset" style="margin-top:6px">全部還原預設指示</button>
           </details>
 
@@ -315,6 +332,24 @@ footer{margin-top:24px;color:var(--muted);font-size:12px;text-align:center}
           </div>
         </div>
       </section>
+
+      <section class="card">
+        <div class="hd"><h2>⑤ 跟進修改</h2><span class="hint">AI 交貨之後，整一份清楚嘅修改提示詞</span></div>
+        <div class="bd">
+          <label class="f" for="fuNotes" style="margin-top:0">你發現嘅問題（一行一點）</label>
+          <textarea id="fuNotes" rows="4" placeholder="例如：手機打直時，方向掣遮住咗關卡目錄"></textarea>
+          <label class="f" for="fuReply">AI 上一次嘅回覆（可選；貼埋，AI 會幫你搵出佢漏做或者講錯咗乜）</label>
+          <textarea id="fuReply" rows="3"></textarea>
+          <div class="toolbar" style="margin-top:10px">
+            <button class="btn" id="btnFuPlain">生成跟進提示詞</button>
+            <button class="btn pri" id="btnFuAI">🤖 AI 整理跟進提示詞</button>
+            <span class="grow"></span>
+            <span class="copied" id="fuCopied" hidden>已複製 ✓</span>
+            <button class="btn" id="btnFuCopy">複製</button>
+          </div>
+          <textarea id="fuOut" rows="10" style="margin-top:10px" placeholder="跟進提示詞會喺度出現；可以再改字先複製。"></textarea>
+        </div>
+      </section>
     </aside>
   </div>
   <footer>所有資料只儲存喺你自己部機嘅瀏覽器。API Key 只會傳去你填嘅 Base URL。</footer>
@@ -325,7 +360,7 @@ footer{margin-top:24px;color:var(--muted);font-size:12px;text-align:center}
 const SECTIONS = [
 { id:'deliver', title:'交付格式', desc:'點樣交個檔畀你，唔好再收到片段或者預覽。', items:[
  ['d1',1,'輸出一個完整嘅單一 HTML 檔（{檔名}），所有 HTML、CSS、JavaScript 都內嵌喺同一個檔案，可以直接下載、雙擊打開，亦可以直接上載到 GitHub Pages 使用。'],
- ['d2',1,'唔好用 Artifact、Canvas 或者預覽視窗交付；我要可以下載嘅 .html 檔案。'],
+ ['d2',1,'唔好用 Artifact、Canvas 或者預覽視窗交付；我要可以下載嘅 .html 檔案。',{only:['grok-chat','other']}],
  ['d3',1,'每次都輸出完整檔案，唔好只畀改動片段，亦唔好寫「其餘部分不變」或者「……省略……」。'],
  ['d4',1,'可以用 CDN 載入外部程式庫（例如 three.js、網上字體），App 可以聯網。'],
  ['d5',0,'唔需要另外嘅 MP3 或者圖片檔；所有素材用程式生成，或者內嵌喺 HTML 入面。'],
@@ -339,6 +374,7 @@ const SECTIONS = [
  ['w5',1,'交付前對照呢份提示詞逐條自我檢查，喺回覆最後列出每一條嘅完成狀態（✅ 已完成／⚠️ 未完成及原因）。'],
  ['w6',1,'修改嘅時候保留所有之前已經做好嘅功能同內容，唔好因為改一樣嘢而刪走或者簡化其他嘢。'],
  ['w7',0,'遇到有歧義嘅要求，揀最合理嘅做法照做，然後喺回覆入面講明你點理解。'],
+ ['w8',1,'回覆同修改只關於呢個項目；唔好提及、沿用、修復或者覆蓋任何其他項目（包括之前對話或者 workspace 入面嘅舊項目）。'],
 ]},
 { id:'lang', title:'語言同文案', desc:'針對書面語口語混雜、句子唔通、廢話多、唔講重點。', items:[
  ['l1',1,'全部文字用{語言}，風格統一；唔好書面語同口語混雜（例如用「呢個、唔好、入面、嘅」，唔好突然變「這個、不要、裡面、的」）。'],
@@ -352,8 +388,8 @@ const SECTIONS = [
  ['l9',0,'引用學術研究或者理論時，講明出處（研究者、年份），用{用戶}聽得明嘅方式解釋，同時講清楚佢嘅適用範圍同限制，唔好誇大。'],
 ]},
 { id:'voice', title:'語音朗讀', desc:'需要讀出文字嘅 App 先剔。', items:[
- ['v1',1,'所有見到嘅文字都要有{語言}語音朗讀，包括標題、說明、選擇題每一個選項、按鈕、角色說明同回饋訊息；要全面檢查有冇遺漏。'],
- ['v2',1,'每個按鈕或者卡片嘅右上角內嵌一個細細嘅喇叭 icon，撳佢就讀出嗰個按鈕獨有嘅內容；唔好每段字旁邊都放一個大喇叭，搞到版面好亂。'],
+ ['v1',1,'所有見到嘅文字都要有{語言}語音朗讀，包括標題、說明、每一個選項、按鈕、角色說明同回饋訊息；要全面檢查有冇遺漏。'],
+ ['v2',1,'每個按鈕或者卡片嘅右上角內嵌一個細細嘅喇叭 icon，撳佢就讀出嗰個按鈕獨有嘅內容；唔好每段字旁邊都放一個大喇叭，搞到版面好亂；喇叭唔可以蓋住按鈕文字。'],
  ['v3',1,'預設開啟「自動播放語音」，跨頁、跨關卡一直保持開啟，直至用戶手動關閉為止；呢個設定要記住。'],
  ['v4',1,'瀏覽器（尤其 iPad／iOS Safari）禁止自動播放：開 App 之後，用戶第一下撳畫面任何位置，就要解鎖並開始播放語音。'],
  ['v5',1,'自動朗讀要設計好次序同取捨：最重要嘅重點先讀，唔需要讀嘅唔讀；唔好畫面有乜字就由頭讀到尾。'],
@@ -363,7 +399,7 @@ const SECTIONS = [
  ['v9',0,'音效同語音嘅音量要平衡，重要嘅音效（例如警告聲）要夠大聲，唔好俾背景語音蓋過。'],
 ]},
 { id:'ui', title:'版面同介面', desc:'針對遮擋、按鈕冇狀態、撳錯返唔到轉頭、字體、目錄混亂。', items:[
- ['u1',1,'文字面板同主要畫面／互動區分開，唔可以遮住任何要撳或者要拖嘅物件；所有元素唔好互相重疊遮擋。'],
+ ['u1',1,'文字面板同主要畫面／互動區分開，唔可以遮住任何要撳或者要拖嘅物件；所有元素（包括浮動控制掣、彈出視窗、目錄、結果頁）都唔可以互相重疊遮擋，當刻用唔到嘅控制掣要收埋。每個畫面都要喺最細嘅手機闊度截圖檢查。'],
  ['u2',1,'響應式排版：打橫（電腦、橫放 iPad）係左畫面、右文字；打直（直放 iPad、手機）係上畫面、下文字；{平台}都要實際測試過。'],
  ['u3',1,'按鈕狀態要清楚：已選中／開啟中嘅按鈕要一直顯示唔同顏色；「提示你撳」（例如閃動）同「已經撳咗」要用有明顯對比嘅顏色區分。'],
  ['u4',1,'所有開關式按鈕撳多一次就還原；任何狀態、姿勢、設定都可以重設返原狀，唔可以撳錯之後返唔到轉頭。'],
@@ -387,7 +423,7 @@ const SECTIONS = [
  ['g8',1,'未完成唔可以跳去下一關；完成咗要清楚顯示「已完成」。'],
  ['g9',1,'動畫要同用戶操作同步：撳先郁、唔撳唔郁；連續操作時動作要流暢連貫，唔好一窒一窒。'],
  ['g10',1,'滑鼠點擊、拖曳同旋轉鏡頭唔可以互相衝突；支援觸控同鍵盤操作，並喺畫面顯示可用嘅按鍵。'],
- ['g11',0,'回饋同勝利訊息要合理、主語清楚（例如「你同爸爸嘅對話好成功」，而唔係「爸爸贏咗」）。'],
+ ['g11',0,'回饋同勝利訊息要合理、主語清楚：講清楚係邊個做咗乜、結果係乜，唔好出現主客倒置嘅講法。'],
 ]},
 { id:'three', title:'3D、角色同動畫', desc:'有 3D 場景或者角色先剔（預設全部唔剔）。', items:[
  ['t1',0,'用 three.js（或者更適合嘅引擎）做 3D 場景，支援放大縮小、旋轉視角，同一鍵返正面。'],
@@ -405,6 +441,8 @@ const SECTIONS = [
  ['c3',1,'設計多個真實生活場景同對象，等用戶學識喺唔同情況點樣運用、觀察同判斷。'],
  ['c4',1,'每一章嘅內容唔可以重複或者大同小異；如果兩部分好似，就合併或者重新分工。'],
  ['c5',0,'教識用戶「點樣諗」：遇到情況時第一時間要留意乜嘢、點樣分輕重、點樣揀做法。'],
+ ['c6',1,'所有事實、數字同真實案例都要有可以核實嘅來源（新聞或者官方網頁連結），喺延伸閱讀列出連結；搵唔到可靠來源就唔好講成真實，改為標明「示範情景」。'],
+ ['c7',0,'涉及受傷、死亡等敏感內容，要按{用戶}嘅年齡處理：講清楚後果同感受，但唔講血腥或者令人不安嘅細節。'],
 ]},
 { id:'tech', title:'技術', desc:'', items:[
  ['x1',1,'程式碼結構清楚、有註解，方便之後修改；瀏覽器 console 唔可以有錯誤。'],
@@ -415,38 +453,55 @@ const SECTIONS = [
 const DEFAULT_FIELDS = {
   name:'', file:'index.html', desc:'',
   audience:'6 至 12 歲小朋友', lang:'廣東話口語（繁體中文）',
-  platform:'iPad（打橫同打直）、Android／iPhone 手機同電腦瀏覽器', extra:''
+  platform:'iPad（打橫同打直）、Android／iPhone 手機同電腦瀏覽器', extra:'',
+  target:'grok-chat', top:'', tests:''
 };
-const FIELD_NAMES = {name:'項目名稱', file:'輸出檔名', desc:'項目描述', audience:'目標用戶', lang:'語言', platform:'平台', extra:'額外要求', mode:'提示詞類型'};
+const TARGETS = {
+  'grok-chat': { label:'Grok 對話', hint:'貼士：每個新項目都開一個全新對話，唔好喺舊對話繼續，費事佢撈埋之前嘅項目。',
+    lines:['呢個係一個全新項目；唔好沿用之前對話入面其他項目嘅內容。','喺對話入面直接畀我完整、可以下載嘅 {檔名}。'] },
+  'grok-build': { label:'Grok Build（App Builder）', hint:'貼士：Grok Build 預設會整一個網站項目。每個新項目都開一個全新嘅 Build 項目；喺舊項目繼續，佢可能會將兩個項目撈埋，甚至用舊項目覆蓋首頁。',
+    lines:['呢個係一個全新、獨立嘅項目。如果 workspace 入面有其他項目嘅檔案或者未完成嘅工作，唔好沿用、修復、重建，亦唔好喺回覆提及；更加唔可以用佢哋覆蓋呢個項目。',
+           '預覽一打開見到嘅首頁，就係呢個項目本身（唔係其他 app，亦唔係示範頁）。',
+           '另外將成個項目輸出成一個可以獨立打開、功能齊全嘅單一 HTML 檔（public/{檔名}），等我可以下載同上載去 GitHub Pages；首頁同呢個檔案要保持同步。',
+           '交付前喺預覽用桌面同最細手機闊度，由開始畫面實際玩到最後一次。'] },
+  'other': { label:'其他 AI', hint:'貼士：每個新項目都開一個全新對話。',
+    lines:['呢個係一個全新項目；唔好沿用之前對話入面其他項目嘅內容。','如果你嘅介面有 Canvas／Artifact 預覽，都要同時畀我完整、可以下載嘅 {檔名}。'] },
+};
+const FIELD_NAMES = {name:'項目名稱', file:'輸出檔名', desc:'項目描述', audience:'目標用戶', lang:'語言', platform:'平台', extra:'額外要求', mode:'提示詞類型', target:'使用平台', top:'最重要', tests:'驗收測試'};
 
 /* ========================= AI 指示 ========================= */
 const DEFAULT_SYS_SUGGEST = `你係一位資深嘅產品經理兼提示詞工程師。用戶會俾你：
 (A) 佢對一個項目嘅「原始需求」；
-(B) 目前嘅「項目資料」；
+(B) 目前嘅「項目資料」（target 係呢份提示詞會貼去邊個 AI 平台）；
 (C) 一份「條款清單」——呢啲條款會組成一份畀另一個 AI（例如 Grok）一次過完成項目嘅提示詞。
 
 你嘅任務：
-1. 先徹底理解原始需求：項目類型、目標用戶、語言、平台、交付形式，有冇語音、3D、遊戲、教學內容等。原始需求冇講嘅，按項目類型作最合理嘅推斷。
+1. 先徹底理解原始需求：項目類型、目標用戶、語言、平台、交付形式，有冇語音、3D、遊戲、教學內容、真實資料等。原始需求冇講嘅，按項目類型作最合理嘅推斷。
 2. 填寫項目資料（fields）：
    - name：簡短清楚嘅項目名稱。
-   - file：合理嘅英文檔名（例如 body-language.html）。
+   - file：合理嘅檔名；冇特別理由就用 index.html。
    - desc：將原始需求整理成清楚、有條理、完整嘅項目描述；用戶提過嘅每一個具體要求都唔可以遺漏或者扭曲。
    - audience、lang、platform：按需求設定；呢三個值會代入條款入面嘅 {用戶}、{語言}、{平台}，所以要寫成可以直接放入句子嘅短語。
-   - extra：用戶特別強調、但條款清單冇 cover 到嘅具體要求，一行一點；冇就留空。
+   - top：3 至 7 點「做唔到就唔算完成」嘅核心要求，一行一點；要係呢個項目最獨特、最容易做錯嘅地方，唔好寫通用嘢。
+   - tests：5 至 12 個具體驗收測試，一行一個，格式「做乜 → 應該見到乜」；要覆蓋 top 每一點、最易出錯嘅互動，同埋最細手機闊度下每個畫面（包括目錄、彈出視窗、結果頁）有冇重疊遮擋。
+   - extra：用戶特別強調、但 top、desc 同條款都冇 cover 到嘅具體要求，一行一點；冇就留空。唔好重複 desc、top 或者 add 已經講咗嘅嘢。
    - mode：如果用戶係要改一個已經存在嘅檔案就用 "edit"，否則用 "new"。
-3. 逐條決定條款清單入面「每一條」嘅 on（true／false），並用一句寫 reason：點解呢條適合或者唔適合呢個項目。
-4. 只有當某條條款方向啱、但字眼一定要調整先貼合項目時，先提供 text（修改後全文）；唔需要改就唔好提供 text。修改時保留 {用戶}、{語言}、{平台}、{檔名} 呢啲佔位符。
-5. 如果有重要要求清單冇 cover，可以喺 add 加新條款（指明放入邊個 section id）。
+3. 逐條決定條款清單入面「每一條」嘅 on（true／false），並用一句寫 reason：點解呢條適合或者唔適合呢個項目。標咗 na:true 嘅條款喺呢個平台唔適用，照回覆但 on 用 false。
+4. 條款字眼：
+   - 方向啱、但一定要調整先貼合項目時，先提供 text（修改後全文）；唔需要改就唔好提供 text。
+   - 條款入面嘅例子如果同呢個項目無關（例如屬於另一類項目嘅角色、場景、題型），要用 text 換成貼合呢個項目嘅例子，或者刪走例子。
+   - 修改時保留 {用戶}、{語言}、{平台}、{檔名} 呢啲佔位符。
+5. 如果有重要要求清單冇 cover，可以喺 add 加新條款（指明放入邊個 section id）。add、top、extra 之間唔好互相重複。
 6. 每設定一個欄位、每決定一條條款，都要停一停諗清楚：
    - 呢個設定同原始需求有冇矛盾？係咪最適合呢個項目？
-   - 同其他設定有冇衝突？（例如：冇語音就唔應該剔語音條款；唔係 3D 就唔剔 3D 條款；唔係遊戲就唔剔遊戲條款；唔係教學就唔剔教學內容條款；lang 同語言條款要一致）
-   - 唔好為咗剔而剔，亦唔好亂改字眼。揀最合理、最貼切嘅。
-7. 全部設定完之後，由頭到尾再檢查一次整體一致性，修正唔合理嘅地方，並喺 checks 列出你檢查過嘅重點同修正。
+   - 同其他設定有冇衝突？（例如：冇語音就唔剔語音條款；唔係 3D 就唔剔 3D 條款；唔係遊戲就唔剔遊戲條款；lang 同語言條款要一致；有浮動控制掣就要同「唔可以遮擋」一齊考慮）
+   - 條款越多，接收嘅 AI 越容易忽略重點：冇明顯需要嘅就唔好剔，亦唔好為咗改而改字眼。
+7. 全部設定完之後，由頭到尾再檢查一次整體一致性同重複，修正唔合理嘅地方，並喺 checks 列出你檢查過嘅重點同修正。
 
 輸出格式：只輸出一個 JSON 物件，唔好加任何其他文字、解釋或者 markdown code block：
 {
-  "fields": {"name":"","file":"","desc":"","audience":"","lang":"","platform":"","extra":"","mode":"new"},
-  "fieldReasons": {"name":"原因","file":"原因","desc":"原因","audience":"原因","lang":"原因","platform":"原因","extra":"原因","mode":"原因"},
+  "fields": {"name":"","file":"","desc":"","audience":"","lang":"","platform":"","top":"一行一點","tests":"一行一個","extra":"","mode":"new"},
+  "fieldReasons": {"name":"原因","file":"原因","desc":"原因","audience":"原因","lang":"原因","platform":"原因","top":"原因","tests":"原因","extra":"原因","mode":"原因"},
   "items": [{"id":"d1","on":true,"reason":"一句原因"}, {"id":"l1","on":true,"reason":"…","text":"（可選）修改後全文"}],
   "add": [{"section":"lang","text":"新條款全文","reason":"原因"}],
   "checks": ["一致性檢查重點或者修正 1", "…"],
@@ -459,10 +514,25 @@ const DEFAULT_SYS_REVIEW = `你係一位嚴格嘅審核員。用戶會俾你：�
 請逐個欄位、逐條條款覆核：
 - 合唔合理？同原始需求有冇矛盾？有冇漏咗需求入面提過嘅嘢？
 - 設定之間有冇互相衝突？（例如冇語音但剔咗語音條款、唔係 3D 但剔咗 3D 條款）
-- 改過嘅字眼有冇改壞、有冇失咗原意、有冇保留 {用戶}{語言}{平台}{檔名} 佔位符？
+- top 係咪真係呢個項目最核心、最易做錯嘅幾點？tests 係咪具體、可以實際驗證，有冇覆蓋 top 同細畫面遮擋？
+- desc、top、extra、add 之間有冇重複？有冇剔咗其實唔需要嘅條款？
+- 條款入面有冇殘留屬於其他項目嘅例子？改過嘅字眼有冇改壞、有冇失咗原意、有冇保留 {用戶}{語言}{平台}{檔名} 佔位符？
 - 原因（reason）係咪真係支持個決定？
 修正所有問題，然後輸出同一個格式嘅「完整」JSON（fields、fieldReasons、items 要包括每一個 id、add、checks、summary）。reason 要反映最終決定；checks 要列出你改咗乜同點解（冇改就寫「已覆核，冇需要修改」）。
 只輸出 JSON，唔好加任何其他文字或者 markdown code block。`;
+
+const DEFAULT_SYS_FOLLOW = `你係一位資深嘅提示詞工程師兼 QA。用戶會俾你：
+(A) 佢原本畀另一個 AI（例如 Grok）嘅提示詞（要求有編號）；
+(B) 嗰個 AI 上一次嘅回覆（可能冇）；
+(C) 用戶自己發現嘅問題。
+
+請寫一份「跟進修改提示詞」，等嗰個 AI 一次過改好：
+1. 將 (C) 每個問題寫成清楚、具體、可以驗證嘅修改要求：講明「而家係點」同「應該係點」。
+2. 對照 (A)，註明每個問題違反咗原本第幾條要求（用編號）；將每個問題擴展成全局檢查：同類嘅地方一併修正。
+3. 從 (B) 搵出：AI 自己講未完成嘅、聲稱做咗但睇落未必做咗嘅、冇交自我檢查清單、或者講緊同呢個項目無關嘅內容（例如另一個項目），一併列入要求。
+4. 每個問題附一個驗收方法（點樣測試先知道改好咗）。
+5. 最後加返規則：原本所有要求繼續全部生效；唔好刪走或者簡化已經做好嘅功能；改完由開始畫面逐頁測試（包括最細手機闊度）；輸出完整檔案；回覆最後逐條列出每個問題 ✅ 已改（點改）／⚠️ 未改（原因）。
+6. 精簡、唔好重複、唔好加前言或者解釋。只輸出提示詞本身，語言同 (A) 一致。`;
 
 const DEFAULT_SYS = `你係一位資深嘅提示詞工程師。用戶會俾你「項目描述」同一份準備貼俾另一個 AI（例如 Grok）嘅「通用提示詞」。
 
@@ -480,8 +550,8 @@ const LS = {
   set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
   del(k){ try{ localStorage.removeItem(k); }catch(e){} }
 };
-function freshState(){ return { fields:{...DEFAULT_FIELDS}, items:{}, custom:{}, mode:'new', collapsed:{}, raw:'', out:'', outSig:'', outEdited:false, aiNote:null, undo:null, opt:{allowText:true, review:false} }; }
-function normState(s){ const st = Object.assign(freshState(), s||{}); st.fields = Object.assign({...DEFAULT_FIELDS}, st.fields||{}); st.opt = Object.assign({allowText:true, review:false}, st.opt||{}); return st; }
+function freshState(){ return { fields:{...DEFAULT_FIELDS}, items:{}, custom:{}, mode:'new', collapsed:{}, raw:'', out:'', outSig:'', outEdited:false, aiNote:null, undo:null, opt:{allowText:true, review:false}, fu:{notes:'', reply:'', out:''} }; }
+function normState(s){ const st = Object.assign(freshState(), s||{}); st.fields = Object.assign({...DEFAULT_FIELDS}, st.fields||{}); st.opt = Object.assign({allowText:true, review:false}, st.opt||{}); st.fu = Object.assign({notes:'', reply:'', out:''}, st.fu||{}); if(!TARGETS[st.fields.target]) st.fields.target='grok-chat'; return st; }
 let state = normState(LS.get(KEY));
 let saveT; function save(){ clearTimeout(saveT); saveT = setTimeout(()=>LS.set(KEY, state), 150); }
 function flushSave(){ clearTimeout(saveT); LS.set(KEY, state); }
@@ -538,6 +608,7 @@ function whyNode(id){
   const d = el('span',{class:'diff', 'data-diff':''}, '· 同 AI 建議唔同'); box.append(d);
   return box;
 }
+function isNA(it){ const o = it && it[3]; return !!(o && o.only && !o.only.includes(state.fields.target)); }
 function itemRow(sec, it, custom){
   const id = it[0];
   const st = custom ? {on:it[1], text:it[2]} : itemState(sec,it);
@@ -546,6 +617,7 @@ function itemRow(sec, it, custom){
   const ta = el('textarea',{rows:'1',placeholder: custom?'寫你自己嘅條款…':''}); ta.value = st.text;
   const mid = el('div',{}, ta);
   const why = whyNode(id); if (why) mid.append(why);
+  if (!custom && isNA(it)){ row.classList.add('na'); mid.append(el('div',{class:'nanote'},`「${TARGETS[state.fields.target].label}」唔適用，唔會放入提示詞。`)); }
   const acts = el('div',{class:'acts'});
   const resetBtn = el('button',{class:'icon',title:'還原原文'},'↺');
   const edited = el('span',{class:'edited'},'已改');
@@ -592,22 +664,25 @@ function collect(){
   const out=[];
   SECTIONS.forEach(sec=>{
     const list=[];
-    sec.items.forEach(it=>{ const s=itemState(sec,it); if(s.on && s.text.trim()) list.push(s.text.trim()); });
+    sec.items.forEach(it=>{ const s=itemState(sec,it); if(s.on && s.text.trim() && !isNA(it)) list.push(s.text.trim()); });
     (state.custom[sec.id]||[]).forEach(c=>{ if(c.on && c.text.trim()) list.push(c.text.trim()); });
     if(list.length) out.push({title:sec.title, list});
   });
   return out;
 }
+function lines(t){ return String(t||'').split(/\n+/).map(x=>x.trim().replace(/^([-*•]|\d+[.、)）])\s*/,'')).filter(Boolean); }
 function generate(){
   const f = state.fields, groups = collect(), L=[];
-  const name = f.name.trim();
+  const name = f.name.trim(), tgt = TARGETS[f.target] || TARGETS['grok-chat'];
+  const tops = lines(f.top), tests = lines(f.tests);
   if (state.mode==='edit'){
     L.push(`# 任務：修改${name?`「${name}」`:'現有項目'}`);
-    L.push('我會附上現有嘅檔案。請喺佢嘅基礎上修改：先處理「今次要改」，同時下面所有要求繼續全部生效。請一次過完成，唔好分開幾次。');
+    L.push('我會附上現有嘅檔案。請喺佢嘅基礎上修改：先處理「今次要改」，同時下面所有要求繼續全部生效。請一次過完成，唔好分開幾次。完成後喺回覆最後逐條列出完成狀態（見最尾）。');
   } else {
     L.push(`# 任務：製作${name?`「${name}」`:'以下項目'}`);
-    L.push('下面每一條要求都必須做到。請一次過完成，唔好分開幾次。');
+    L.push('下面每一條要求都必須做到。請一次過完成，唔好分開幾次。完成後喺回覆最後逐條列出完成狀態（見最尾）。');
   }
+  if (tops.length){ L.push('', '## 最重要（做唔到就唔算完成）', ...tops.map(x=>`- ${fill(x)}`)); }
   if (f.desc.trim()){ L.push('', '## 項目描述', f.desc.trim()); }
   const meta=[];
   if (f.audience.trim()) meta.push(`- 目標用戶：${f.audience.trim()}`);
@@ -615,24 +690,29 @@ function generate(){
   if (f.platform.trim()) meta.push(`- 平台：${f.platform.trim()}`);
   if (f.file.trim()) meta.push(`- 輸出檔名：${f.file.trim()}`);
   if (meta.length){ L.push('', '## 基本資料', ...meta); }
+  L.push('', '## 交付方式', ...tgt.lines.map(x=>`- ${fill(x)}`));
   if (f.extra.trim()){
     L.push('', state.mode==='edit' ? '## 今次要改（最優先）' : '## 額外要求（最優先）');
-    f.extra.trim().split(/\n+/).forEach(x=>{ x=x.trim(); if(x) L.push(/^[-*•\d]/.test(x)?x:`- ${x}`); });
+    lines(f.extra).forEach(x=>L.push(`- ${x}`));
   }
   let n=0;
   if (groups.length){
     L.push('', '## 要求（全部必須做到）');
     groups.forEach((g,i)=>{ L.push('', `### ${CN[i]||i+1}、${g.title}`); g.list.forEach(t=>L.push(`${++n}. ${fill(t)}`)); });
   }
+  if (tests.length){
+    L.push('', '## 驗收測試（交付前逐個實際做一次）');
+    tests.forEach((t,i)=>L.push(`T${i+1}. ${fill(t)}`));
+  }
   L.push('', '## 交付前');
-  L.push(`請逐條對照以上${n?` ${n} 條`:''}要求自我檢查同實際測試，然後先交付完整檔案。回覆最後用清單列出每一條嘅狀態：✅ 已完成／⚠️ 未完成（附原因）。`);
+  L.push(`請逐條對照以上${n?` ${n} 條`:''}要求${tests.length?`同 ${tests.length} 個驗收測試`:''}自我檢查同實際測試，然後先交付完整檔案。回覆最後用清單列出：每一條要求 ✅ 已完成／⚠️ 未完成（附原因）${tests.length?'；每個驗收測試（T1、T2…）通過／唔通過':''}。`);
   return L.join('\n');
 }
 function sig(){ return JSON.stringify([state.fields, state.items, state.custom, state.mode]); }
 function refresh(){
   let tot=0, on=0;
   document.querySelectorAll('.sec').forEach(card=>{
-    const rows=[...card.querySelectorAll('.item')], c=rows.filter(r=>r.classList.contains('on')).length;
+    const rows=[...card.querySelectorAll('.item')], c=rows.filter(r=>r.classList.contains('on') && !r.classList.contains('na')).length;
     card._cnt.textContent = `${c}/${rows.length}`; tot+=rows.length; on+=c;
   });
   $('#totalCount').textContent = `已揀 ${on}／${tot} 條`;
@@ -653,8 +733,9 @@ $('#btnGen').onclick = doGenerate;
 
 /* ========================= 項目資料、模式 ========================= */
 document.querySelectorAll('[data-field]').forEach(inp=>{
-  inp.addEventListener('input',()=>{ state.fields[inp.dataset.field]=inp.value; save(); refresh(); });
+  inp.addEventListener('input',()=>{ state.fields[inp.dataset.field]=inp.value; save(); if(inp.dataset.field==='target'){ updateTargetHint(); renderSections(); } refresh(); });
 });
+function updateTargetHint(){ const t=TARGETS[state.fields.target]; $('#targetHint').textContent = t ? t.hint : ''; }
 function setMode(m){
   state.mode=m; save();
   document.querySelectorAll('#modeSeg button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.mode===m)));
@@ -757,13 +838,21 @@ function initUI(){
   $('#optAllowText').checked = !!state.opt.allowText;
   $('#optReview').checked = !!state.opt.review;
   $('#out').value = state.out || '';
-  renderSections(); setMode(state.mode||'new'); renderFieldReasons(); renderAINote(); refresh();
+  $('#fuNotes').value = state.fu.notes; $('#fuReply').value = state.fu.reply; $('#fuOut').value = state.fu.out;
+  updateTargetHint(); renderSections(); setMode(state.mode||'new'); renderFieldReasons(); renderAINote(); refresh();
 }
 
 /* ========================= AI 設定 ========================= */
-const AI_DEFAULT = { base:'https://api.z.ai/api/paas/v4', model:'glm-5.3', max:131072, key:'', remember:true, autodown:true, thinking:true, effort:'max', sys:DEFAULT_SYS, sysSuggest:DEFAULT_SYS_SUGGEST, sysReview:DEFAULT_SYS_REVIEW };
-let ai = Object.assign({...AI_DEFAULT}, LS.get(AIKEY)||{});
-const aiEls = { base:$('#ai_base'), model:$('#ai_model'), max:$('#ai_max'), key:$('#ai_key'), remember:$('#ai_remember'), autodown:$('#ai_autodown'), thinking:$('#ai_thinking'), effort:$('#ai_effort'), sys:$('#ai_sys'), sysSuggest:$('#ai_sysSuggest'), sysReview:$('#ai_sysReview') };
+const AI_DEFAULT = { base:'https://api.z.ai/api/paas/v4', model:'glm-5.3', max:131072, key:'', remember:true, autodown:true, thinking:true, effort:'max', sys:DEFAULT_SYS, sysSuggest:DEFAULT_SYS_SUGGEST, sysReview:DEFAULT_SYS_REVIEW, sysFollow:DEFAULT_SYS_FOLLOW, sysVer:3 };
+const savedAI = LS.get(AIKEY)||{};
+let ai = Object.assign({...AI_DEFAULT}, savedAI);
+/* 舊版預設指示自動升級（你自己改過嘅就唔郁） */
+if ((savedAI.sysVer||0) < 3){
+  if (ai.sysSuggest && ai.sysSuggest.length===1542 && ai.sysSuggest.startsWith('你係一位資深嘅產品經理兼提示詞工程師')) ai.sysSuggest = DEFAULT_SYS_SUGGEST;
+  if (ai.sysReview && ai.sysReview.length===379 && ai.sysReview.startsWith('你係一位嚴格嘅審核員')) ai.sysReview = DEFAULT_SYS_REVIEW;
+  ai.sysVer = 3;
+}
+const aiEls = { base:$('#ai_base'), model:$('#ai_model'), max:$('#ai_max'), key:$('#ai_key'), remember:$('#ai_remember'), autodown:$('#ai_autodown'), thinking:$('#ai_thinking'), effort:$('#ai_effort'), sys:$('#ai_sys'), sysSuggest:$('#ai_sysSuggest'), sysReview:$('#ai_sysReview'), sysFollow:$('#ai_sysFollow') };
 function loadAI(){
   for (const [k,e] of Object.entries(aiEls)){ if(e.type==='checkbox') e.checked=!!ai[k]; else e.value = ai[k] ?? ''; }
   if (!ai.base || !ai.key) $('#cfgDetails').open = true;
@@ -777,7 +866,7 @@ Object.values(aiEls).forEach(e=>e.addEventListener(e.type==='checkbox'||e.tagNam
 $('#btnShowKey').onclick=()=>{ const k=aiEls.key; k.type = k.type==='password'?'text':'password'; $('#btnShowKey').textContent = k.type==='password'?'顯示':'隱藏'; };
 let learnedMax = LS.get(AIKEY+'.learned') || {};
 $('#btnClearAI').onclick=()=>{ if(!confirm('清除已儲存嘅 Base URL、Model、API Key 同 AI 設定？')) return; LS.del(AIKEY); LS.del(AIKEY+'.learned'); learnedMax={}; ai={...AI_DEFAULT}; loadAI(); };
-$('#btnSysReset').onclick=()=>{ aiEls.sys.value=DEFAULT_SYS; aiEls.sysSuggest.value=DEFAULT_SYS_SUGGEST; aiEls.sysReview.value=DEFAULT_SYS_REVIEW; saveAI(); };
+$('#btnSysReset').onclick=()=>{ aiEls.sys.value=DEFAULT_SYS; aiEls.sysSuggest.value=DEFAULT_SYS_SUGGEST; aiEls.sysReview.value=DEFAULT_SYS_REVIEW; aiEls.sysFollow.value=DEFAULT_SYS_FOLLOW; saveAI(); };
 
 /* ========================= 串流 ========================= */
 const ui = {
@@ -785,7 +874,7 @@ const ui = {
   mStatus:$('#miniStatus'), mPhase:$('#miniPhase'), mStats:$('#miniStats'), mTicker:$('#miniTicker'), mTickerText:$('#miniTickerText'),
   think:$('#thinkBox'), res:$('#resBox'), err:$('#errbox'), log:$('#log'), resCount:$('#resCount')
 };
-const KIND_LABEL = { suggest:'（建議勾選）', review:'（審核覆核）', optimize:'（優化提示詞）', test:'（測試連線）' };
+const KIND_LABEL = { suggest:'（建議勾選）', review:'（審核覆核）', optimize:'（優化提示詞）', followup:'（跟進修改）', test:'（測試連線）' };
 let run = null;
 function setPhase(cls, label){
   ui.status.className='status st-'+cls; ui.phase.textContent=label;
@@ -816,7 +905,7 @@ function paint(){
 function schedulePaint(){ if(run && !run.raf){ run.raf=requestAnimationFrame(()=>{ if(run){run.raf=0; paint();} }); } }
 let tick=null;
 function setBusy(b){
-  for (const id of ['#btnAI','#btnTest','#btnSuggest']) $(id).disabled=b;
+  for (const id of ['#btnAI','#btnTest','#btnSuggest','#btnFuAI']) $(id).disabled=b;
   $('#btnStop').disabled=!b; $('#btnStop2').disabled=!b;
   if (b){ $('#btnCont').disabled=true; $('#btnUseAI').disabled=true; $('#btnCopyAI').disabled=true; $('#btnReapply').disabled=true; ui.ticker.classList.remove('idle'); ui.mTicker.classList.remove('idle'); clearInterval(tick); tick=setInterval(paint,500); }
   else { clearInterval(tick); ui.ticker.classList.add('idle'); ui.mTicker.classList.add('idle'); }
@@ -937,14 +1026,14 @@ $('#btnCont').onclick=()=>{
 function catalogue(){
   return SECTIONS.map(sec=>({
     section: sec.id, title: sec.title, note: sec.desc,
-    items: [ ...sec.items.map(it=>({id:it[0], text:itemState(sec,it).text})),
+    items: [ ...sec.items.map(it=>({id:it[0], text:itemState(sec,it).text, ...(isNA(it)?{na:true}:{})})),
              ...(state.custom[sec.id]||[]).map(c=>({id:c.id, text:c.text, custom:true})) ]
   }));
 }
 function suggestUserMsg(only){
   let cat = catalogue();
   if (only){ const set=new Set(only); cat = cat.map(c=>({...c, items:c.items.filter(i=>set.has(i.id))})).filter(c=>c.items.length); }
-  return `(A) 原始需求：\n<<<\n${state.raw.trim()}\n>>>\n\n(B) 目前項目資料：\n${JSON.stringify({...state.fields, mode:state.mode}, null, 1)}\n\n(C) 條款清單（每一個 id 都要回覆）：\n${JSON.stringify(cat, null, 1)}\n\n${state.opt.allowText ? '容許你喺有需要時提供 text 微調條款字眼。' : '今次唔好提供 text，唔可以改條款字眼，只決定 on／off。'}`;
+  return `(A) 原始需求：\n<<<\n${state.raw.trim()}\n>>>\n\n(B) 目前項目資料：\n${JSON.stringify({...state.fields, target: (TARGETS[state.fields.target]||{}).label, mode:state.mode}, null, 1)}\n\n(C) 條款清單（每一個 id 都要回覆）：\n${JSON.stringify(cat, null, 1)}\n\n${state.opt.allowText ? '容許你喺有需要時提供 text 微調條款字眼。' : '今次唔好提供 text，唔可以改條款字眼，只決定 on／off。'}`;
 }
 function extractJSON(t){
   let s = String(t).trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
@@ -960,7 +1049,7 @@ function applySuggestion(j, label, merge=false){
   const allowText = !!state.opt.allowText;
   const prevNote = merge && state.aiNote ? state.aiNote : null;
   if (j.fields && typeof j.fields==='object'){
-    for (const k of Object.keys(DEFAULT_FIELDS)) if (typeof j.fields[k]==='string' && (!merge || j.fields[k].trim())) state.fields[k]=j.fields[k];
+    for (const k of Object.keys(DEFAULT_FIELDS)){ if (k==='target') continue; let v=j.fields[k]; if (Array.isArray(v)) v=v.map(String).join('\n'); if (typeof v==='string' && (!merge || v.trim())) state.fields[k]=v; }
     if (j.fields.mode==='edit' || j.fields.mode==='new') state.mode=j.fields.mode;
   }
   const map = new Map((Array.isArray(j.items)?j.items:[]).filter(x=>x&&x.id!=null).map(x=>[String(x.id),x]));
@@ -1059,6 +1148,36 @@ $('#btnUseAI').onclick=()=>{
   $('#out').scrollIntoView({behavior:'smooth',block:'center'});
 };
 $('#btnCopyAI').onclick=async()=>{ if(run && await copyText(run.text.trim())) flashCopied(); };
+
+/* ========================= 跟進修改 ========================= */
+['notes','reply','out'].forEach(k=>{
+  const id = {notes:'#fuNotes', reply:'#fuReply', out:'#fuOut'}[k];
+  $(id).addEventListener('input', e=>{ state.fu[k]=e.target.value; save(); });
+});
+function setFuOut(t){ state.fu.out=t; $('#fuOut').value=t; save(); $('#fuOut').scrollIntoView({behavior:'smooth', block:'nearest'}); }
+$('#btnFuPlain').onclick=()=>{
+  const f=state.fields, notes=lines(state.fu.notes), tgt=f.target;
+  if (!notes.length){ $('#fuNotes').focus(); return; }
+  const L=[`# 跟進修改：${f.name.trim()?`「${f.name.trim()}」`:'上一次嘅項目'}`,
+    '請喺你上一次交付嘅版本上修改。下面每一個問題都當全局問題處理：檢查成個項目所有同類嘅地方，一併修正，唔好淨係改我提到嗰一處。', '', '## 今次要改'];
+  notes.forEach((x,i)=>L.push(`${i+1}. ${x}`));
+  L.push('', '## 規則',
+    '- 原本提示詞入面嘅所有要求繼續全部生效；唔好刪走或者簡化已經做好嘅功能同內容。',
+    '- 改完由開始畫面逐頁測試一次（包括最細手機闊度），確保冇整壞其他無關嘅嘢。',
+    '- 回覆同修改只關於呢個項目。');
+  if (tgt==='grok-build') L.push('- 首頁仍然要係呢個項目，public/'+(f.file.trim()||'index.html')+' 都要同步更新。');
+  L.push('- 輸出完整檔案，唔好只畀片段。', '- 回覆最後逐條列出上面每個問題：✅ 已改（點樣改）／⚠️ 未改（原因）。');
+  setFuOut(L.join('\n'));
+};
+$('#btnFuAI').onclick=()=>{
+  if (!lines(state.fu.notes).length && !state.fu.reply.trim()){ $('#fuNotes').focus(); setPhase('err','請先寫問題或者貼 AI 回覆'); return; }
+  if (!state.out.trim()) doGenerate();
+  startRun([
+    {role:'system', content: ai.sysFollow || DEFAULT_SYS_FOLLOW},
+    {role:'user', content: `(A) 原本嘅提示詞：\n<<<\n${state.out}\n>>>\n\n(B) AI 上一次嘅回覆：\n<<<\n${state.fu.reply.trim()||'（冇提供）'}\n>>>\n\n(C) 用戶發現嘅問題：\n${state.fu.notes.trim()||'（冇提供，請由 (B) 搵出問題）'}`}
+  ], {kind:'followup', onDone:r=>setFuOut(r.text.trim())});
+};
+$('#btnFuCopy').onclick=async()=>{ if($('#fuOut').value.trim() && await copyText($('#fuOut').value)){ const m=$('#fuCopied'); m.hidden=false; clearTimeout(m._t); m._t=setTimeout(()=>m.hidden=true,1600); } };
 
 /* ========================= 開始 ========================= */
 loadAI();
